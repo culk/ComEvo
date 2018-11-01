@@ -15,19 +15,25 @@ def get_graph_index(edgeTime, currentTime, timeQuantum):
 	#integer division on purpose
 	return (currentTime - edgeTime) / timeQuantum
 
+def get_snapshot_timerange(snapShotIndex, currentTime, timeQuantum):
+	#returns the epoch time range for the graph. Will be a tuple of start time and end time
+	startTime = currentTime - (snapShotIndex*(timeQuantum + 1))
+	endTime = currentTime - (snapShotIndex*(timeQuantum))
+	return (startTime, endTime)
+
 def get_graph_snapshots(graph, timeQuantum):
 	"""
 	Arg - takes in the graph, timeQuantum should be in seconds
-	Returns the list of graph snapshots
+	Returns the list of graph snapshots with their epoch time ranges
 	"""
 	#
 	startTime = 1217567877
 	currentEpochTime = int(time.time())
-	print currentEpochTime
 	
-	numberOfSnapshots = get_graph_index(1217567877, currentEpochTime, timeQuantum) + 1 #Handle OBOB
+	numberOfSnapshots = get_graph_index(startTime, currentEpochTime, timeQuantum) + 1 #Handle OBOB
 
 	graphSnapshots = []
+	graphSnapshotRanges = []
 
 	for i in range(numberOfSnapshots):
 		#Add empty multi-graphs
@@ -40,10 +46,8 @@ def get_graph_snapshots(graph, timeQuantum):
 		srcId = edgeI.GetSrcNId()
 		dstId = edgeI.GetDstNId()
 		try:
-			#edgeTimeStamp = graph.GetIntAttrDatE(edgeI, 'time')
-			edgeTimeStamp = 1217567877
+			edgeTimeStamp = graph.GetIntAttrDatE(edgeI.GetId(), 'time')
 			currentEdgeSnapshotIndex = get_graph_index(edgeTimeStamp, currentEpochTime, timeQuantum)
-			print currentEdgeSnapshotIndex
 			graphSnapshot = graphSnapshots[currentEdgeSnapshotIndex]
 			
 			#Add the nodes
@@ -62,6 +66,28 @@ def get_graph_snapshots(graph, timeQuantum):
 			#Edge Doesn't have timestamp!!! Handle Later
 			raise
 
+	nonEmptySnapshotsWithRanges = []
+	#return only graphs that have >0 edges
+	for i in range(len(graphSnapshots)): 
+		g = graphSnapshots[i]
+		if g.GetEdges() > 0:
+			nonEmptySnapshotsWithRanges.append((get_snapshot_timerange(i, currentEpochTime, timeQuantum), g))
+
+	"""
+	Debug Block - 
+
+	totalEdges = 0
+	for g in graphSnapshots:
+		if g.GetEdges() > 0:
+			for e in g.Edges():
+				print "e is " + str(e.GetSrcNId()) + " -> " + str(e.GetDstNId()) + ", time = " + str(g.GetIntAttrDatE(e.GetId(), 'time')) + ", edges = " + str(g.GetEdges())
+			raw_input()
+			totalEdges += g.GetEdges()
+
+	print "Total Edges = " + str(totalEdges)
+
+	"""
+
 	"""
 	Debug block
 
@@ -71,7 +97,7 @@ def get_graph_snapshots(graph, timeQuantum):
 		print "e is " + str(e.GetSrcNId()) + " -> " + str(e.GetDstNId()) + ", time = " + str(g.GetIntAttrDatE(e.GetId(), 'time')) + ", edges = " + str(g.GetEdges())
 
 	"""
-	return graphSnapshots
+	return nonEmptySnapshotsWithRanges
 	
 def load_graph(version):
     # Select which version of the graph to load
@@ -113,9 +139,9 @@ def print_graph_summary(graph):
 def main():
     graph = load_graph('partial')
     print_graph_summary(graph)
-    pdb.set_trace()
-
-    graph_snapshots = get_graph_snapshots(graph, 86400)
+    
+    graph_snapshots = get_graph_snapshots(graph, 86400*30)
+    print str(graph_snapshots)
 
 if __name__ == '__main__':
     main()
