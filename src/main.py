@@ -6,14 +6,11 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
-DATA_DIR = '../data/'
+import config
 
 def load_graph(version):
     # Select which version of the graph to load
-    if version == 'full':
-        path = os.path.join(DATA_DIR, 'stackoverflow_full.txt')
-    elif version == 'partial':
-        path = os.path.join(DATA_DIR, 'stackoverflow_partial.txt')
+    path = config.DATA_PATH[version]
 
     # Initialize a new graph and add an attribute for 'time'
     graph = snap.TNEANet.New()
