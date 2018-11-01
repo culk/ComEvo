@@ -5,14 +5,11 @@ import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
-DATA_DIR = '../data/'
+import config
 
 def load_graph(version):
     # Loads the stack overflow full network without edge labels
-    if version == 'full':
-        path = os.path.join(DATA_DIR, 'stackoverflow_full.txt')
-    elif version == 'partial':
-        path = os.path.join(DATA_DIR, 'stackoverflow_partial.txt')
+    path = config.DATA_PATH[version]
     graph = snap.LoadEdgeList(snap.PNEANet, path, 0, 1, ' ')
     return graph
 
