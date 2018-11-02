@@ -1,3 +1,4 @@
+import csv
 import datetime
 import time
 
@@ -10,6 +11,7 @@ import config
 class Graph():
     graph = None # snap.TNEANet containing all edges
     weights = None # List of weights for each time slice
+    time_slices = [] # List of tuples containing [start, end) times
     sub_graphs = [] # List of snap.TUNGraph for each time slice
     communities = None # Matrix of shape T x N containing community labels
 
@@ -49,14 +51,14 @@ class Graph():
     
     def calc_communities(self, method, time_delta, weight_fn=None, weighted=False):
         """
-        Update the internal weights, subgraphs, and communities by calling the
+        Update the internal weights, sub graphs, and communities by calling the
         function for community detection for the specified method.
         """
         # Calculate the bucket weights to use
         if weighted and weight_fn is not None:
             pass
 
-        # Organize the subgraphs by the time_delta
+        # Organize the sub graphs by the time_delta
 
         # Calculate community membership for each time slice
         if method == 'louvain':
@@ -67,7 +69,7 @@ class Graph():
     def get_conductance(self, weighted=False):
         """
         Calculates the average weighted or unweighted conductance for the graph
-        given the already calculated subgraphs and communities.
+        given the already calculated sub graphs and communities.
 
         Returns a list of conductance values.
         """
@@ -84,4 +86,67 @@ class Graph():
         print('first edge time: %d' % self._start_time)
         print('last edge time: %d' % self._end_time)
         print('time period: %d' % (self._end_time - self._start_time))
+
+    def update_subgraphs(self, time_delta):
+        """
+        Update the self.sub_graphs to contain a list of graphs each containing
+        only the edges present in that time slice.
+        """
+        # Initialize the sub graphs and time slices
+        self.sub_graphs = []
+        self.time_slices = []
+        for t in range(self._start_time, self._end_time + 1, time_delta):
+            self.sub_graphs.append(snap.TNEANet.New())
+            self.time_slices.append((t, t + time_delta))
+
+        # Add each edge to its respective sub graph
+        for edge in self.graph.Edges():
+            # Parse the edge
+            src_id, dst_id = edge.GetSrcNId(), edge.GetDstNId()
+            timestamp = self.graph.GetIntAttrDatE(edge, 'time')
+
+            # Identify which subgraph index to add the edge to
+            i = (timestamp - self._start_time) / time_delta
+
+            # Add the nodes if not already present in the sub graph
+            if not self.sub_graphs[i].IsNode(src_id):
+                self.sub_graphs[i].AddNode(src_id)
+            if not self.sub_graphs[i].IsNode(dst_id):
+                self.sub_graphs[i].AddNode(dst_id)
+
+            # Add the edge and assign the timestamp as an attribute, preserves
+            # the edge id from the original graph.
+            edge_id = self.sub_graphs[i].AddEdge(src_id, dst_id, edge.GetId())
+            self.graph.AddIntAttrDatE(edge_id, timestamp, 'time')
+
+    def save_subgraph_summaries(self, filename):
+        """
+        Write the summary statistics for each subgraph to a csv file.
+        """
+        field_names = [
+                'slice_index',
+                'start_time',
+                'end_time',
+                'num_nodes',
+                'num_temporal_edges',
+                'num_static_edges',
+                ]
+
+        # Open a csvfile and create a csv writer
+        with open(filename, 'wb') as csvfile:
+            writer = csv.writer(csvfile, delimiter=',')
+            writer.writerow(field_names)
+
+            # Calculate statistics for each sub graph
+            for i, start_end in enumerate(self.time_slices):
+                start_time, end_time = start_end
+                field_values = [
+                        i,
+                        start_time,
+                        end_time,
+                        self.sub_graphs[i].GetNodes(),
+                        self.sub_graphs[i].GetEdges(),
+                        snap.CntUniqUndirEdges(self.sub_graphs[i]),
+                        ]
+                writer.writerow(field_values)
 
