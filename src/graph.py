@@ -5,15 +5,20 @@ import time
 import numpy as np
 import snap
 
-import config
+import sys
 
+import config
+import networkx as nx
+from networkx import edge_betweenness_centrality
 
 class Graph():
     graph = None # snap.TNEANet containing all edges
     weights = None # List of weights for each time slice
     time_slices = [] # List of tuples containing [start, end) times
     sub_graphs = [] # List of snap.TUNGraph for each time slice
-    communities = None # Matrix of shape T x N containing community labels
+    communities = None # Matrix of shape T x N containing community labels --- For now considering as list of lists
+
+    networkx_graph = None
 
     # Unix timestamp of first and last edge
     _start_time = None
@@ -63,6 +68,8 @@ class Graph():
         # Calculate community membership for each time slice
         if method == 'louvain':
             pass
+        elif method =="girvan-newman":
+            self.calc_communities_girvan_newman(time_delta, weight_fn, weighted)
         else: # etc.
             pass
 
@@ -73,9 +80,17 @@ class Graph():
 
         Returns a list of conductance values.
         """
-        assert communities is not None
+        assert self.communities is not None
 
-        pass
+        minConductance = float(sys.maxint)
+        graphNodes = list(self.networkx_graph.nodes)
+        for community in self.communities:
+            #conductance = nx.algorithms.cuts.conductance(self.networkx_graph, set(community), set(graphNodes).difference(set(community)), weight='weight')
+            conductance = nx.algorithms.cuts.conductance(self.networkx_graph, set(community), set(graphNodes).difference(set(community)))
+            print "conductance = " + str(conductance)
+            if minConductance > conductance:
+                minConductance = conductance
+        return minConductance
 
     def print_summary(self):
         """
@@ -150,3 +165,70 @@ class Graph():
                         ]
                 writer.writerow(field_values)
 
+    #Private Mathods
+    def calc_communities_girvan_newman(self, time_delta, weight_fn=None, weighted=False):
+        """
+        Create Network graphs for each of the subgraphs
+        Use Networkx Algorithm to Find Communities
+        """
+        #First do for the entire graph
+        networkxGraph = self.create_networkx_graph(self.graph, weighted, weight_fn)
+
+        self.networkx_graph = networkxGraph
+
+        components = nx.algorithms.community.centrality.girvan_newman(networkxGraph, most_valuable_edge=self.most_central_edge)
+        
+        self.communities = tuple(sorted(component) for component in next(components))
+
+        #print str(self.communities)
+
+
+    def most_central_edge(self, G):
+        centrality = edge_betweenness_centrality(G, weight='weight')
+        return max(centrality, key=centrality.get)
+
+    def calculate_graph_modularity(self, graph, communities):
+        assert communities is not None
+
+        #Since communities is a list of lists, formulate snap vector and get the conductance
+        communityModularities = []
+        for community in communities:
+            communityNodes = snap.TIntV()
+            for nodeId in community:
+                communityNodes.Add(nodeId)
+
+            communityModularity = snap.GetModularity(graph, communityNodes)
+            communityModularities.append(communityModularity)
+
+        #Get the min of the communities - that is the modularity
+        graphModularity = min(communityModularities)
+        print str(graphModularity)
+        return graphModularity
+
+    def create_networkx_graph(self, graph, weighted=False, weight_fn=None):
+        """
+        Creates a networkx graph for a given SNAP Graph
+        """
+        networkxGraph = nx.Graph()
+        for edgeI in graph.Edges():
+            edgeId = edgeI.GetId()
+            srcId = edgeI.GetSrcNId()
+            dstId = edgeI.GetDstNId()
+            timestamp = graph.GetIntAttrDatE(edgeI, 'time')
+
+            if not networkxGraph.has_node(srcId):
+                networkxGraph.add_node(srcId)
+
+            if not networkxGraph.has_node(dstId):
+                networkxGraph.add_node(dstId)
+
+            #Add edges and weights
+            #for now only keep 1 edge between nodes even if it has multi-edges
+            if not networkxGraph.has_edge(srcId, dstId):
+                if weighted:
+                    edge_weight = weight_fn(self._start_time, self._end_time, timestamp)
+                else:
+                    edge_weight = 1.0
+                networkxGraph.add_edge(srcId, dstId, weight=edge_weight)
+
+        return networkxGraph
