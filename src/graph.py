@@ -68,7 +68,7 @@ class Graph():
         # Calculate community membership for each time slice
         if method == 'louvain':
             pass
-        elif method =="girvan-newman":
+        elif method == 'girvan-newman':
             self.calc_communities_girvan_newman(time_delta, weight_fn, weighted)
         else: # etc.
             pass
