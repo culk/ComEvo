@@ -54,7 +54,7 @@ class Graph():
                 edge_id = self.graph.AddEdge(src_id, dst_id)
                 self.graph.AddIntAttrDatE(edge_id, timestamp, 'time')
     
-    def calc_communities(self, method, time_delta, weight_fn=None, weighted=False):
+    def calc_communities(self, method, weight_fn=None, weighted=False):
         """
         Update the internal weights, sub graphs, and communities by calling the
         function for community detection for the specified method.
@@ -63,13 +63,14 @@ class Graph():
         if weighted and weight_fn is not None:
             pass
 
-        # Organize the sub graphs by the time_delta
-
         # Calculate community membership for each time slice
         if method == 'louvain':
             pass
         elif method == 'girvan-newman':
-            self.calc_communities_girvan_newman(time_delta, weight_fn, weighted)
+            self.calc_communities_girvan_newman(weight_fn, weighted)
+        elif method == 'spectral':
+            k = 100 # TODO: replace with found best k
+            self.calc_communities_spectral(k, weight_fn, weighted)
         else: # etc.
             pass
 
@@ -166,7 +167,7 @@ class Graph():
                 writer.writerow(field_values)
 
     #Private Mathods
-    def calc_communities_girvan_newman(self, time_delta, weight_fn=None, weighted=False):
+    def calc_communities_girvan_newman(self, weight_fn=None, weighted=False):
         """
         Create Network graphs for each of the subgraphs
         Use Networkx Algorithm to Find Communities
@@ -181,6 +182,11 @@ class Graph():
         self.communities = tuple(sorted(component) for component in next(components))
 
         #print str(self.communities)
+
+    def calc_communities_spectral(self, k, weight_fn=None, weighted=False):
+        # for each subgraph (self.subgraph[i])
+        # calculate laplacian matrix
+        pass
 
 
     def most_central_edge(self, G):

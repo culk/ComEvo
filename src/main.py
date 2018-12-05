@@ -109,8 +109,8 @@ def main():
     graph_snapshots = get_graph_snapshots(graph.graph, 86400*30)
     print str(graph_snapshots)
 
-    graph.calc_communities("girvan-newman", 86400*30*3, weight_fn=None, weighted=False)
-    #graph.calc_communities("girvan-newman", 86400*30, weight_fn=linear_weight_function, weighted=True)
+    graph.calc_communities("girvan-newman", weight_fn=None, weighted=False)
+    #graph.calc_communities("girvan-newman", weight_fn=linear_weight_function, weighted=True)
     graph.get_conductance()
 
 if __name__ == '__main__':
