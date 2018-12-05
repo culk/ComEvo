@@ -103,11 +103,11 @@ def get_graph_snapshots(graph, timeQuantum):
 
     
 def main():
-    graph = Graph('6months')
+    graph = Graph('1year')
     graph.print_summary()
 
-    graph_snapshots = get_graph_snapshots(graph.graph, 86400*30)
-    print str(graph_snapshots)
+    time_delta = 30*24*60*60 # 30 days
+    graph.update_subgraphs(time_delta)
 
     graph.calc_communities("girvan-newman", weight_fn=None, weighted=False)
     #graph.calc_communities("girvan-newman", weight_fn=linear_weight_function, weighted=True)

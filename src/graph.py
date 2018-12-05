@@ -188,7 +188,6 @@ class Graph():
         # calculate laplacian matrix
         pass
 
-
     def most_central_edge(self, G):
         centrality = edge_betweenness_centrality(G, weight='weight')
         return max(centrality, key=centrality.get)
