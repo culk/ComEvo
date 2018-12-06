@@ -71,6 +71,8 @@ class Graph():
         elif method == 'spectral':
             k = 100 # TODO: replace with found best k
             self.calc_communities_spectral(k, weight_fn, weighted)
+        elif method == 'fastgreedy':
+            self.calc_communities_fastgreedy()
         else: # etc.
             pass
 
@@ -187,6 +189,26 @@ class Graph():
         # for each subgraph (self.subgraph[i])
         # calculate laplacian matrix
         pass
+
+    # TODO: Make sure community labels have consistent mapping across time slices
+    def calc_communities_fastgreedy(self):
+        communities = {}
+        t_count = 0
+        for subgraph in self.sub_graphs:
+            subgraph_clean = snap.DelSelfEdges(subgraph)
+            CmtyV = snap.TCnComV()
+            modularity = snap.CommunityCNM(subgraph_clean, CmtyV)
+            
+            label_counter = 0
+            for CnCom in CmtyV:
+                for NI in CnCom:
+                    nid = NI.GetId()
+                    if nid not in communities:
+                        communities[nid] = [0 for i in xrange(len(self.sub_graphs))]
+                    communities[nid][t_count] = label_counter
+                label_counter += 1
+            t_count += 1
+        self.communities = communities
 
     def most_central_edge(self, G):
         centrality = edge_betweenness_centrality(G, weight='weight')
