@@ -198,7 +198,7 @@ class Graph():
             subgraph_clean = snap.DelSelfEdges(subgraph)
             CmtyV = snap.TCnComV()
             modularity = snap.CommunityCNM(subgraph_clean, CmtyV)
-            
+
             label_counter = 0
             for CnCom in CmtyV:
                 for NI in CnCom:

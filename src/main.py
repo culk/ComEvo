@@ -11,7 +11,7 @@ import sys
 
 import config
 from graph import Graph
-# from utilities import *
+from utilities import *
 
 
 def get_graph_index(edgeTime, currentTime, timeQuantum):
