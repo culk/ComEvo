@@ -10,6 +10,8 @@ import snap
 import sys
 
 import config
+import utilities
+
 from graph import Graph
 from utilities import *
 
@@ -103,15 +105,12 @@ def get_graph_snapshots(graph, timeQuantum):
 
     
 def main():
-    graph = Graph('1year')
+    graph = Graph('30days')
     graph.print_summary()
-
-    time_delta = 30*24*60*60 # 30 days
-    graph.update_subgraphs(time_delta)
-
-    graph.calc_communities("girvan-newman", weight_fn=None, weighted=False)
-    #graph.calc_communities("girvan-newman", weight_fn=linear_weight_function, weighted=True)
-    graph.get_conductance()
+    graph.preprocess()
+    graph.update_subgraphs(86400*3)
+    graph.calc_communities("lieden-algorithm", weight_fn=linear_fn, weighted=True)
+    #graph.get_conductance()
 
 if __name__ == '__main__':
     main()
