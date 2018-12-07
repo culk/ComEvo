@@ -159,10 +159,16 @@ class Graph():
         print('time period: %d' % (self._end_time - self._start_time))
 
     def set_time_delta(self, time_delta):
+        """
+        Update the time delta and time slices using the given time_delta.
+        """
         self.time_delta = time_delta
         self.num_time_slices = (self._end_time - self._start_time + 1) / time_delta
 
     def set_num_time_slices(self, num_time_slices):
+        """
+        Update the time delta and time slices using the given num_time_slices.
+        """
         self.num_time_slices = num_time_slices
         self.time_delta = (self._end_time - self._start_time + 1) / num_time_slices
 
