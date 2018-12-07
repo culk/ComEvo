@@ -10,6 +10,8 @@ import snap
 import sys
 
 import config
+import utilities
+
 from graph import Graph
 from utilities import *
 
@@ -103,13 +105,14 @@ def get_graph_snapshots(graph, timeQuantum):
 
     
 def main():
-    graph = Graph('6months')
+    graph = Graph('30days')
     graph.print_summary()
-
-    graph_snapshots = get_graph_snapshots(graph.graph, 86400*30)
-    print str(graph_snapshots)
-
-    graph.calc_communities("girvan-newman", 86400*30*3, weight_fn=None, weighted=False)
+    graph.preprocess()
+    #graph_snapshots = get_graph_snapshots(graph.graph, 86400*30)
+    #print str(graph_snapshots)
+    graph.update_subgraphs(86400*3)
+    #graph.calc_communities("girvan-newman", 86400*30, weight_fn=utilities.linear_weight_function, weighted=True)
+    graph.calc_communities("lieden-algorithm", 86400*1, weight_fn=utilities.linear_weight_function, weighted=True)
     #graph.calc_communities("girvan-newman", 86400*30, weight_fn=linear_weight_function, weighted=True)
     graph.get_conductance()
 

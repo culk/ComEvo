@@ -6,10 +6,15 @@ import numpy as np
 import snap
 
 import sys
+import pdb
 
 import config
 import networkx as nx
 from networkx import edge_betweenness_centrality
+from networkx.algorithms import community
+
+import igraph as ig
+import leidenalg
 
 class Graph():
     graph = None # snap.TNEANet containing all edges
@@ -19,6 +24,7 @@ class Graph():
     communities = None # Matrix of shape T x N containing community labels --- For now considering as list of lists
 
     networkx_graph = None
+    iGraph = None
 
     # Unix timestamp of first and last edge
     _start_time = None
@@ -53,6 +59,11 @@ class Graph():
                 # Add the edge and assign the timestamp as an attribute
                 edge_id = self.graph.AddEdge(src_id, dst_id)
                 self.graph.AddIntAttrDatE(edge_id, timestamp, 'time')
+
+    def preprocess(self):
+        snap.DelDegKNodes(self.graph, 1, 1)
+        snap.DelDegKNodes(self.graph, 2, 2)
+        snap.DelDegKNodes(self.graph, 3, 3)
     
     def calc_communities(self, method, time_delta, weight_fn=None, weighted=False):
         """
@@ -68,8 +79,10 @@ class Graph():
         # Calculate community membership for each time slice
         if method == 'louvain':
             pass
-        elif method =="girvan-newman":
+        elif method == "girvan-newman":
             self.calc_communities_girvan_newman(time_delta, weight_fn, weighted)
+        elif method == "lieden-algorithm":
+            self.calc_communities_lieden_algorithm(time_delta, weight_fn, weighted)
         else: # etc.
             pass
 
@@ -132,7 +145,7 @@ class Graph():
             # Add the edge and assign the timestamp as an attribute, preserves
             # the edge id from the original graph.
             edge_id = self.sub_graphs[i].AddEdge(src_id, dst_id, edge.GetId())
-            self.graph.AddIntAttrDatE(edge_id, timestamp, 'time')
+            self.sub_graphs[i].AddIntAttrDatE(edge_id, timestamp, 'time')
 
     def save_subgraph_summaries(self, filename):
         """
@@ -172,15 +185,51 @@ class Graph():
         Use Networkx Algorithm to Find Communities
         """
         #First do for the entire graph
-        networkxGraph = self.create_networkx_graph(self.graph, weighted, weight_fn)
+        for i, sub_graph in enumerate(self.sub_graphs):
 
-        self.networkx_graph = networkxGraph
+            pdb.set_trace()
 
-        components = nx.algorithms.community.centrality.girvan_newman(networkxGraph, most_valuable_edge=self.most_central_edge)
-        
-        self.communities = tuple(sorted(component) for component in next(components))
+            networkxGraph = self.create_networkx_graph(sub_graph, weighted, weight_fn)
 
-        #print str(self.communities)
+            self.networkx_graph = networkxGraph
+
+            components = community.girvan_newman(networkxGraph, most_valuable_edge=self.most_central_edge)
+            
+            self.communities = tuple(sorted(component) for component in next(components))
+
+            print str(self.communities)
+
+            writeCommunityToFile(self.communities, i)
+
+    def calc_communities_lieden_algorithm(self, time_delta, weight_fn=None, weighted=False):
+        """
+        Create igraphs for each of the subgraphs so that the Lieden can work with it.
+        Use Networkx Algorithm to Find Communities
+        """
+        #First do for the entire graph
+        pdb.set_trace()
+        for i, sub_graph in enumerate(self.sub_graphs):
+
+            pdb.set_trace()
+
+            iGraph = self.create_igraph(sub_graph, weighted, weight_fn)
+
+            self.iGraph = iGraph
+
+            pdb.set_trace()
+
+            to_delete_ids = [v.index for v in iGraph.vs if v.degree() == 0]
+            iGraph.delete_vertices(to_delete_ids)
+
+            pdb.set_trace()
+
+            partitions = leidenalg.find_partition(iGraph, leidenalg.ModularityVertexPartition, weights=iGraph.es["weight"]);
+            
+            pdb.set_trace()
+
+            print str(partitions)
+
+            writeCommunityToFile(partitions, i)
 
 
     def most_central_edge(self, G):
@@ -232,3 +281,55 @@ class Graph():
                 networkxGraph.add_edge(srcId, dstId, weight=edge_weight)
 
         return networkxGraph
+
+    def create_igraph(self, graph, weighted=False, weight_fn=None):
+        """
+        Creates a networkx graph for a given SNAP Graph
+        """
+        #pdb.set_trace()
+        new_igraph = ig.Graph()
+        edge_weights = []
+        for edgeI in graph.Edges():
+            edgeId = edgeI.GetId()
+            srcId = edgeI.GetSrcNId()
+            dstId = edgeI.GetDstNId()
+            timestamp = graph.GetIntAttrDatE(edgeI, 'time')
+
+            if srcId != dstId:
+                #if not new_igraph.has_node(srcId):
+                new_igraph.add_vertices(srcId)
+
+                #if not networkxGraph.has_node(dstId):
+                new_igraph.add_vertices(dstId)
+
+            #Add edges and weights
+            #for now only keep 1 edge between nodes even if it has multi-edges
+            if new_igraph.get_eid(srcId, dstId, error=False) == -1 and srcId != dstId:
+                if weighted:
+                    edge_weight = weight_fn(self._start_time, self._end_time, timestamp)
+                else:
+                    edge_weight = 1.0
+                new_igraph.add_edges([(srcId, dstId)])
+                edge_weights.append(edge_weight)
+        
+        new_igraph.es['weight'] = edge_weights
+        pdb.set_trace()
+        return new_igraph
+
+    def writeCommunityToFile(communities, index):
+        communityAssignment = {}
+        for i, community in enumerate(communities):
+            communityAssignment[i] = sorted(community)
+
+        with open("communityAssignment" + str(index) + ".txt", "w") as filename:
+            filename.write(communityAssignment)
+        filename.close()
+
+    def writeParitionsToFile(communities, index):
+        communityAssignment = {}
+        for i, community in enumerate(communities):
+            communityAssignment[i] = sorted(community)
+
+        with open("communityAssignment" + str(index) + ".txt", "w") as filename:
+            filename.write(communityAssignment)
+        filename.close()
