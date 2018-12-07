@@ -108,6 +108,15 @@ class Graph():
             self.node_to_index[n.GetId()] = i
 
         # TODO: initialize self.communities as a N*T matrix
+
+    def sanitize_communities(self):
+        """
+        Works on the self.communities and sanities it to have the same community labels across timestamps
+        """
+
+        assert self.communities is not None
+
+        
     
     def calc_communities(self, method, weight_fn=None, weighted=False):
         """
@@ -291,8 +300,6 @@ class Graph():
         #First do for the entire graph
         for i, sub_graph in enumerate(self.sub_graphs):
 
-            #pdb.set_trace()
-
             networkxGraph = self.create_networkx_graph(sub_graph, weighted, weight_fn)
 
             self.networkx_graph = networkxGraph
@@ -341,7 +348,7 @@ class Graph():
 
             tCount += 1
 
-        np.save("leiden-assignments.csv", communities)
+        np.save("leiden-assignments", communities)
 
         self.communities = communities
 
