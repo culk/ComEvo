@@ -110,7 +110,7 @@ def main():
     graph.preprocess()
     graph.update_subgraphs(86400*3)
     graph.calc_communities("lieden-algorithm", weight_fn=linear_fn, weighted=True)
-    graph.get_conductance()
+    #graph.get_conductance()
 
 if __name__ == '__main__':
     main()

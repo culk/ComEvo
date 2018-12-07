@@ -482,7 +482,7 @@ class Graph():
                     edge_weights.append(edge_weight)
         
         new_igraph.es['weight'] = edge_weights
-        pdb.set_trace()
+        #pdb.set_trace()
         return new_igraph
 
     def writeCommunityToFile(communities, index):
