@@ -14,16 +14,20 @@ from networkx import edge_betweenness_centrality
 
 class Graph():
     graph = None # snap.TNEANet containing all edges
-    weights = None # List of weights for each time slice
-    time_slices = [] # List of tuples containing [start, end) times
-    sub_graphs = [] # List of snap.TUNGraph for each time slice
     communities = None # Matrix of shape T x N containing community labels --- For now considering as list of lists
+    edge_list = []
 
     networkx_graph = None
 
     # Unix timestamp of first and last edge
     _start_time = None
     _end_time = None
+
+    # Attributes for subgraphs
+    time_delta = None
+    subgraph = None # snap.TNEANet containing edges up to current time slice
+    _cur_time = None
+    _cur_index = 0
 
     def __init__(self, version):
         """
@@ -127,9 +131,12 @@ class Graph():
         print('last edge time: %d' % self._end_time)
         print('time period: %d' % (self._end_time - self._start_time))
 
-    def gen_next_subgraph(self, time_delta, weight_fn=None):
+    def set_time_delta(self, time_delta):
+        self.time_delta = time_delta
+
+    def gen_next_subgraph(self, weight_fn=None):
         start_time = self._cur_time
-        end_time = start_time + time_delta
+        end_time = start_time + self.time_delta
         i = self._cur_index
         while i < len(self.edge_list):
             src_id, dst_id, timestamp = self.edge_list[i]
