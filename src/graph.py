@@ -172,17 +172,28 @@ class Graph():
         self.time_delta = (self._end_time - self._start_time) / num_time_slices
 
     def gen_next_subgraph(self, weight_fn=None):
+        # Reset subgraph state
+        self._cur_index = 0
+        self._cur_time = self._start_time
+        self.subgraph.Clr()
+        del self.subgraph
+        self.subgraph = snap.TNEANet.New()
+        self.subgraph.AddFltAttrE('weight')
+
         start_time = self._cur_time
         end_time = start_time + self.time_delta
         i = self._cur_index
         while i < len(self.edge_list):
             src_id, dst_id, timestamp = self.edge_list[i]
 
-            # Break if edge is outside of time slice
+            # Yield if edge is outside of time slice
             if timestamp >= end_time:
+                time_slice = (start_time, end_time)
                 self._cur_index = i
                 self._cur_time = end_time
-                break
+                start_time = self._cur_time
+                end_time = start_time + self.time_delta
+                yield self.subgraph, time_slice
 
             # Add the nodes if not already present
             if not self.subgraph.IsNode(src_id): self.subgraph.AddNode(src_id)
@@ -204,10 +215,6 @@ class Graph():
                 edge_id = self.subgraph.AddEdge(src_id, dst_id)
             self.subgraph.AddFltAttrDatE(edge_id, weight, 'weight')
             i += 1
-
-        # Calculate the time slice and return
-        time_slice = (start_time, end_time)
-        return self.subgraph, time_slice
 
     def update_subgraphs(self, time_delta):
         # TODO: debricate after switching to new subgraph function
