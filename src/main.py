@@ -108,8 +108,10 @@ def main():
     graph = Graph('30days')
     graph.print_summary()
     graph.preprocess()
-    graph.update_subgraphs(86400*3)
-    graph.calc_communities("lieden-algorithm", weight_fn=linear_fn, weighted=True)
+#     graph.update_subgraphs(86400*3)
+    graph.set_time_delta(86400*3)
+#     graph.calc_communities("lieden-algorithm", weight_fn=linear_fn, weighted=True)
+    graph.calc_communities("fastgreedy", weight_fn=None, weighted=False)
     #graph.get_conductance()
 
 if __name__ == '__main__':
