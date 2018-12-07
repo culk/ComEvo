@@ -3,6 +3,7 @@ import datetime
 import time
 
 import numpy as np
+from scipy.cluster.vq import kmeans, whiten
 import snap
 
 import sys
@@ -61,6 +62,7 @@ class Graph():
         """
         # Calculate the bucket weights to use
         if weighted and weight_fn is not None:
+            # TODO: should error here
             pass
 
         # Calculate community membership for each time slice
@@ -69,7 +71,7 @@ class Graph():
         elif method == 'girvan-newman':
             self.calc_communities_girvan_newman(weight_fn, weighted)
         elif method == 'spectral':
-            k = 100 # TODO: replace with found best k
+            k = 10 # TODO: replace with found best k
             self.calc_communities_spectral(k, weight_fn, weighted)
         elif method == 'fastgreedy':
             self.calc_communities_fastgreedy()
@@ -186,9 +188,58 @@ class Graph():
         #print str(self.communities)
 
     def calc_communities_spectral(self, k, weight_fn=None, weighted=False):
-        # for each subgraph (self.subgraph[i])
-        # calculate laplacian matrix
-        pass
+        for subgraph, time_slice in zip(self.sub_graphs, self.time_slices):
+            print(time_slice)
+            print(subgraph.GetNodes())
+            print(subgraph.GetEdges())
+            # TODO: implement weight function support
+            # calculate normalized laplacian matrix and a node to index mapping
+            D, A, node_to_index = self.get_matrices(subgraph, weight_fn)
+            print(D)
+            D_full = np.zeros_like(A)
+            np.fill_diagonal(D_full, D)
+            L = D_full - A
+            D_star = np.zeros_like(A)
+            np.fill_diagonal(D_star, D**(-.5))
+            L_norm = np.dot(np.dot(D_star, L), D_star)
+
+            # calculate top k eigenvectors
+            values, vectors = np.linalg.eigh(L_norm)
+            indices = np.argsort(values)[1:(k + 1)]
+            features = vectors[:, indices]
+            print(features)
+            print(features.shape)
+
+            # apply clustering algorithm
+            features = whiten(features)
+            centroids, distortion = kmeans(features, k)
+            print(centroids)
+            print(centroids.shape)
+            print(distortion)
+
+            # TODO: assign clusters based on closest centroid
+
+    def get_matrices(self, graph, weight_fn=None):
+        # TODO: update to use a weight function
+        num_nodes = graph.GetNodes()
+        D = np.zeros(num_nodes)
+        A = np.zeros((num_nodes, num_nodes))
+
+        node_to_index = dict()
+        for i, n in enumerate(graph.Nodes()):
+            node_to_index[n.GetId()] = i
+            # degree is union of the set of out and in edges
+            degree = len(set(x for x in n.GetOutEdges())
+                         | set(y for y in n.GetInEdges()))
+            D[i] = degree
+
+        for e in graph.Edges():
+            i = node_to_index[e.GetSrcNId()]
+            j = node_to_index[e.GetDstNId()]
+            A[i, j] = 1
+            A[j, i] = 1
+
+        return D, A, node_to_index
 
     # TODO: Make sure community labels have consistent mapping across time slices
     def calc_communities_fastgreedy(self):
