@@ -114,16 +114,11 @@ class Graph():
         Update the internal weights, sub graphs, and communities by calling the
         function for community detection for the specified method.
         """
-        # Calculate the bucket weights to use
-        if weighted and weight_fn is not None:
-            # TODO: should error here
-            pass
-
         # Calculate community membership for each time slice
         if method == 'louvain':
             pass
-        elif method == "lieden-algorithm":
-            self.calc_communities_lieden_algorithm(weight_fn, weighted)
+        elif method == "leiden-algorithm":
+            self.calc_communities_leiden_algorithm(weight_fn)
         elif method == 'girvan-newman':
             self.calc_communities_girvan_newman(weight_fn, weighted)
         elif method == 'spectral':
@@ -165,11 +160,11 @@ class Graph():
 
     def set_time_delta(self, time_delta):
         self.time_delta = time_delta
-        self.num_time_slices = (self._end_time - self._start_time) / time_delta
+        self.num_time_slices = (self._end_time - self._start_time + 1) / time_delta
 
     def set_num_time_slices(self, num_time_slices):
         self.num_time_slices = num_time_slices
-        self.time_delta = (self._end_time - self._start_time) / num_time_slices
+        self.time_delta = (self._end_time - self._start_time + 1) / num_time_slices
 
     def gen_next_subgraph(self, weight_fn=None):
         # Reset subgraph state
@@ -304,42 +299,26 @@ class Graph():
 
             writeCommunityToFile(self.communities, i)
 
-    def calc_communities_lieden_algorithm(self, weight_fn=None, weighted=False):
+    def calc_communities_leiden_algorithm(self, weight_fn=None):
         """
         Create igraphs for each of the subgraphs so that the Lieden can work with it.
         Use Networkx Algorithm to Find Communities
         """
-        #First do for the entire graph
-        #pdb.set_trace()
-        for graph_ind, sub_graph in enumerate(self.sub_graphs):
+        for subgraph, time_slice in self.gen_next_subgraph(weight_fn):
+            self.iGraph = self.create_igraph(subgraph)
+            to_delete_ids = [v.index for v in self.iGraph.vs if v.degree() == 0]
+            self.iGraph.delete_vertices(to_delete_ids)
 
-            #pdb.set_trace()
-
-            iGraph = self.create_igraph(sub_graph, weighted, weight_fn)
-
-            self.iGraph = iGraph
-
-            #pdb.set_trace()
-
-            to_delete_ids = [v.index for v in iGraph.vs if v.degree() == 0]
-            iGraph.delete_vertices(to_delete_ids)
-
-            #pdb.set_trace()
-
-            partitions = leidenalg.find_partition(iGraph, leidenalg.ModularityVertexPartition, weights=iGraph.es["weight"]);
-            
-            #pdb.set_trace()
-
-            print str(partitions)
+            partitions = leidenalg.find_partition(self.iGraph, leidenalg.ModularityVertexPartition, weights=self.iGraph.es["weight"]);
 
             communityAssignment = {}
-            for i in range(len(iGraph.vs)):
+            for i in range(len(self.iGraph.vs)):
                 if partitions.membership[i] in communityAssignment.keys():
-                    communityAssignment[partitions.membership[i]].append(iGraph.vs[i]["name"])
+                    communityAssignment[partitions.membership[i]].append(self.iGraph.vs[i]["name"])
                 else:
-                    communityAssignment[partitions.membership[i]] = [iGraph.vs[i]["name"]]
+                    communityAssignment[partitions.membership[i]] = [self.iGraph.vs[i]["name"]]
 
-            self.writeParitionsToFile(communityAssignment, graph_ind)
+            self.writeParitionsToFile(communityAssignment, time_slice)
 
     def calc_communities_spectral(self, k, weight_fn=None, weighted=False):
         for subgraph, time_slice in zip(self.sub_graphs, self.time_slices):
@@ -461,40 +440,32 @@ class Graph():
 
         return networkxGraph
 
-    def create_igraph(self, graph, weighted=False, weight_fn=None):
+    def create_igraph(self, graph):
         """
         Creates a networkx graph for a given SNAP Graph
         """
-        #pdb.set_trace()
         new_igraph = ig.Graph()
         edge_weights = []
         for edgeI in graph.Edges():
+            # Parse the edge information 
             edgeId = edgeI.GetId()
             srcId = edgeI.GetSrcNId()
             dstId = edgeI.GetDstNId()
-            timestamp = graph.GetIntAttrDatE(edgeI, 'time')
+            weight = graph.GetFltAttrDatE(edgeI, 'weight')
 
-            if srcId != dstId:
-                #if not new_igraph.has_node(srcId):
+            # Add the nodes if not already present
+            if len(new_igraph.vs) == 0 or srcId not in new_igraph.vs['name']:
                 new_igraph.add_vertex(srcId)
-                src_vertex_graph_index = new_igraph.vs.select(name=srcId)[0].index
-
-                #if not networkxGraph.has_node(dstId):
+            if len(new_igraph.vs) == 0 or dstId not in new_igraph.vs['name']:
                 new_igraph.add_vertex(dstId)
-                dst_vertex_graph_index = new_igraph.vs.select(name=dstId)[0].index
 
-                #Add edges and weights
-                #for now only keep 1 edge between nodes even if it has multi-edges
-                if new_igraph.get_eid(src_vertex_graph_index, dst_vertex_graph_index, error=False) == -1:
-                    if weighted:
-                        edge_weight = weight_fn(self._start_time, self._end_time, timestamp)
-                    else:
-                        edge_weight = 1.0
-                    new_igraph.add_edge(src_vertex_graph_index, dst_vertex_graph_index)
-                    edge_weights.append(edge_weight)
+            # Add edge and weight
+            src_vertex_graph_index = new_igraph.vs.select(name=srcId)[0].index
+            dst_vertex_graph_index = new_igraph.vs.select(name=dstId)[0].index
+            new_igraph.add_edge(src_vertex_graph_index, dst_vertex_graph_index)
+            edge_weights.append(weight)
         
         new_igraph.es['weight'] = edge_weights
-        #pdb.set_trace()
         return new_igraph
 
     def writeCommunityToFile(communities, index):
@@ -509,5 +480,5 @@ class Graph():
     def writeParitionsToFile(self, communityAssignment, index):
         with open("communityAssignment" + str(index) + ".txt", "w") as filename:
             for key in communityAssignment.keys():
-                filename.write(str(key) + ":" + str(communityAssignment[key]) + "\n\n")
+                filename.write(str(key) + ":" + str(communityAssignment[key]) + "\n")
         filename.close()
