@@ -72,6 +72,8 @@ class Graph():
         self.node_to_index = dict()
         for i, n in enumerate(self.graph.Nodes()):
             self.node_to_index[n.GetId()] = i
+
+        # TODO: initialize self.communities as a N*T matrix
     
     def calc_communities(self, method, weight_fn=None, weighted=False):
         """
@@ -301,9 +303,8 @@ class Graph():
 
     # TODO: Make sure community labels have consistent mapping across time slices
     def calc_communities_fastgreedy(self):
-        communities = {}
-        t_count = 0
-        for subgraph in self.sub_graphs:
+        communities = [[0 for j in xrange(len(self.sub_graphs))] for i in xrange(len(self.node_to_index))]
+        for (t_count, subgraph) in enumerate(self.sub_graphs):
             subgraph_clean = snap.DelSelfEdges(subgraph)
             CmtyV = snap.TCnComV()
             modularity = snap.CommunityCNM(subgraph_clean, CmtyV)
@@ -312,11 +313,8 @@ class Graph():
             for CnCom in CmtyV:
                 for NI in CnCom:
                     nid = NI.GetId()
-                    if nid not in communities:
-                        communities[nid] = [0 for i in xrange(len(self.sub_graphs))]
-                    communities[nid][t_count] = label_counter
+                    communities[self.node_to_index[nid]][t_count] = label_counter
                 label_counter += 1
-            t_count += 1
         self.communities = communities
 
     def most_central_edge(self, G):
