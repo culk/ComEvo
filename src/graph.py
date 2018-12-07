@@ -19,10 +19,8 @@ import leidenalg
 
 class Graph():
     graph = None # snap.TNEANet containing all edges
-    weights = None # List of weights for each time slice
-    time_slices = [] # List of tuples containing [start, end) times
-    sub_graphs = [] # List of snap.TUNGraph for each time slice
     communities = None # Matrix of shape T x N containing community labels --- For now considering as list of lists
+    edge_list = []
 
     networkx_graph = None
     iGraph = None
@@ -30,6 +28,12 @@ class Graph():
     # Unix timestamp of first and last edge
     _start_time = None
     _end_time = None
+
+    # Attributes for subgraphs
+    time_delta = None
+    subgraph = None # snap.TNEANet containing edges up to current time slice
+    _cur_time = None
+    _cur_index = 0
 
     def __init__(self, version):
         """
@@ -102,6 +106,8 @@ class Graph():
         self.node_to_index = dict()
         for i, n in enumerate(self.graph.Nodes()):
             self.node_to_index[n.GetId()] = i
+
+        # TODO: initialize self.communities as a N*T matrix
     
     def calc_communities(self, method, weight_fn=None, weighted=False):
         """
@@ -157,9 +163,12 @@ class Graph():
         print('last edge time: %d' % self._end_time)
         print('time period: %d' % (self._end_time - self._start_time))
 
-    def gen_next_subgraph(self, time_delta, weight_fn=None):
+    def set_time_delta(self, time_delta):
+        self.time_delta = time_delta
+
+    def gen_next_subgraph(self, weight_fn=None):
         start_time = self._cur_time
-        end_time = start_time + time_delta
+        end_time = start_time + self.time_delta
         i = self._cur_index
         while i < len(self.edge_list):
             src_id, dst_id, timestamp = self.edge_list[i]
@@ -376,9 +385,8 @@ class Graph():
 
     # TODO: Make sure community labels have consistent mapping across time slices
     def calc_communities_fastgreedy(self):
-        communities = {}
-        t_count = 0
-        for subgraph in self.sub_graphs:
+        communities = [[0 for j in xrange(len(self.sub_graphs))] for i in xrange(len(self.node_to_index))]
+        for (t_count, subgraph) in enumerate(self.sub_graphs):
             subgraph_clean = snap.DelSelfEdges(subgraph)
             CmtyV = snap.TCnComV()
             modularity = snap.CommunityCNM(subgraph_clean, CmtyV)
@@ -387,11 +395,8 @@ class Graph():
             for CnCom in CmtyV:
                 for NI in CnCom:
                     nid = NI.GetId()
-                    if nid not in communities:
-                        communities[nid] = [0 for i in xrange(len(self.sub_graphs))]
-                    communities[nid][t_count] = label_counter
+                    communities[self.node_to_index[nid]][t_count] = label_counter
                 label_counter += 1
-            t_count += 1
         self.communities = communities
 
     def most_central_edge(self, G):
