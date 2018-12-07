@@ -382,18 +382,28 @@ class Graph():
 
     # TODO: Make sure community labels have consistent mapping across time slices
     def calc_communities_fastgreedy(self):
-        communities = [[0 for j in xrange(len(self.sub_graphs))] for i in xrange(len(self.node_to_index))]
-        for (t_count, subgraph) in enumerate(self.sub_graphs):
-            subgraph_clean = snap.DelSelfEdges(subgraph)
+        communities = [[-1 for j in xrange(self.num_time_slices)] for i in xrange(len(self.node_to_index))]
+
+        t_count = 0
+        for (subgraph, time_slice) in self.gen_next_subgraph():
+            subgraph_clean = snap.ConvertGraph(snap.PUNGraph, subgraph)
+            snap.DelSelfEdges(subgraph_clean)
             CmtyV = snap.TCnComV()
             modularity = snap.CommunityCNM(subgraph_clean, CmtyV)
 
             label_counter = 0
             for CnCom in CmtyV:
-                for NI in CnCom:
-                    nid = NI.GetId()
+                for nid in CnCom:
                     communities[self.node_to_index[nid]][t_count] = label_counter
                 label_counter += 1
+
+            print ("Time slice: (%f, %f), Modularity = %f", time_slice[0], time_slice[1], modularity)
+            t_count += 1
+
+        for i in xrange(len(communities)):
+            if (communities[i][:3] != [-1, -1, -1]):
+                print communities[i][:3]
+
         self.communities = communities
 
     def most_central_edge(self, G):
