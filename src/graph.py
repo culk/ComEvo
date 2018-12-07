@@ -33,27 +33,40 @@ class Graph():
         # Select which version of the graph to load
         path = config.DATA_PATH[version]
 
+        # Create a sorted edge list
+        self.edge_list = []
+        with open(path, 'r') as edge_list_file:
+            for line in edge_list_file:
+                src, dst, t = (int(i) for i in line.split(' '))
+                # Ignore self edges
+                if src == dst: continue
+                self.edge_list.append((src, dst, t))
+        self.edge_list = sorted(self.edge_list, key=lambda x: x[2])
+
+        # Get start and end time stamps
+        self._start_time = self.edge_list[0][2]
+        self._end_time = self.edge_list[-1][2]
+
+        # Initialize values for iterating over subgraphs
+        self._cur_time = self._start_time
+        self._cur_index = 0
+        self.subgraph = snap.TNEANet.New()
+        self.subgraph.AddFltAttrE('weight')
+
         # Initialize a new graph and add an attribute for 'time'
         self.graph = snap.TNEANet.New()
         self.graph.AddIntAttrE('time')
-        with open(path, 'r') as edge_list:
-            for line in edge_list:
-                # Parse the line
-                src_id, dst_id, timestamp = (int(i) for i in line.split(' '))
+        for edge in self.edge_list:
+            # Parse the line
+            src_id, dst_id, timestamp = edge
 
-                # Update start and end time
-                if not self._start_time or self._start_time > timestamp:
-                    self._start_time = timestamp
-                if not self._end_time or self._end_time < timestamp:
-                    self._end_time = timestamp
+            # Add the nodes if not already present
+            if not self.graph.IsNode(src_id): self.graph.AddNode(src_id)
+            if not self.graph.IsNode(dst_id): self.graph.AddNode(dst_id)
 
-                # Add the nodes if not already present
-                if not self.graph.IsNode(src_id): self.graph.AddNode(src_id)
-                if not self.graph.IsNode(dst_id): self.graph.AddNode(dst_id)
-
-                # Add the edge and assign the timestamp as an attribute
-                edge_id = self.graph.AddEdge(src_id, dst_id)
-                self.graph.AddIntAttrDatE(edge_id, timestamp, 'time')
+            # Add the edge and assign the timestamp as an attribute
+            edge_id = self.graph.AddEdge(src_id, dst_id)
+            self.graph.AddIntAttrDatE(edge_id, timestamp, 'time')
     
     def calc_communities(self, method, weight_fn=None, weighted=False):
         """
@@ -107,7 +120,46 @@ class Graph():
         print('last edge time: %d' % self._end_time)
         print('time period: %d' % (self._end_time - self._start_time))
 
+    def gen_next_subgraph(self, time_delta, weight_fn=None):
+        start_time = self._cur_time
+        end_time = start_time + time_delta
+        i = self._cur_index
+        while i < len(self.edge_list):
+            src_id, dst_id, timestamp = self.edge_list[i]
+
+            # Break if edge is outside of time slice
+            if timestamp >= end_time:
+                self._cur_index = i
+                self._cur_time = end_time
+                break
+
+            # Add the nodes if not already present
+            if not self.subgraph.IsNode(src_id): self.subgraph.AddNode(src_id)
+            if not self.subgraph.IsNode(dst_id): self.subgraph.AddNode(dst_id)
+
+            # Calculate the weight added by this edge
+            if weight_fn:
+                weight = weight_fn(self._start_time, self._end_time, timestamp)
+            else:
+                weight = 1
+
+            # Add the edge weight to the subgraph
+            if self.subgraph.IsEdge(src_id, dst_id):
+                # Update the edge weight with the previous weight
+                edge_id = self.subgraph.GetEI(src_id, dst_id).GetId()
+                weight += self.subgraph.GetFltAttrDatE(edge_id, 'weight')
+            else:
+                # Add the edge and initialize with the weight
+                edge_id = self.subgraph.AddEdge(src_id, dst_id)
+            self.subgraph.AddFltAttrDatE(edge_id, weight, 'weight')
+            i += 1
+
+        # Calculate the time slice and return
+        time_slice = (start_time, end_time)
+        return self.subgraph, time_slice
+
     def update_subgraphs(self, time_delta):
+        # TODO: debricate after switching to new subgraph function
         """
         Update the self.sub_graphs to contain a list of graphs each containing
         only the edges present in that time slice.
@@ -140,6 +192,7 @@ class Graph():
             self.graph.AddIntAttrDatE(edge_id, timestamp, 'time')
 
     def save_subgraph_summaries(self, filename):
+        # TODO: does not work with new subgraph function
         """
         Write the summary statistics for each subgraph to a csv file.
         """
