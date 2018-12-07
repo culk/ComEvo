@@ -14,6 +14,7 @@ import utilities
 
 from graph import Graph
 from utilities import *
+import pdb
 
 
 def get_graph_index(edgeTime, currentTime, timeQuantum):
@@ -108,10 +109,9 @@ def main():
     graph = Graph('30days')
     graph.print_summary()
     graph.preprocess()
-#     graph.update_subgraphs(86400*3)
     graph.set_time_delta(86400*3)
-#     graph.calc_communities("lieden-algorithm", weight_fn=linear_fn, weighted=True)
-    graph.calc_communities("fastgreedy", weight_fn=None, weighted=False)
+    graph.calc_communities("leiden-algorithm", weight_fn=linear_fn, weighted=True)
+    #graph.calc_communities("fastgreedy", weight_fn=None, weighted=False)
     #graph.get_conductance()
 
 if __name__ == '__main__':

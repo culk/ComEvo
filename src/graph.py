@@ -304,8 +304,14 @@ class Graph():
         Create igraphs for each of the subgraphs so that the Lieden can work with it.
         Use Networkx Algorithm to Find Communities
         """
+        #init communities
+        communities = [[-1 for j in xrange(self.num_time_slices)] for i in xrange(len(self.node_to_index))]
+        tCount = 0
+
         for subgraph, time_slice in self.gen_next_subgraph(weight_fn):
             self.iGraph = self.create_igraph(subgraph)
+
+            #delete degree 0 nodes
             to_delete_ids = [v.index for v in self.iGraph.vs if v.degree() == 0]
             self.iGraph.delete_vertices(to_delete_ids)
 
@@ -313,12 +319,25 @@ class Graph():
 
             communityAssignment = {}
             for i in range(len(self.iGraph.vs)):
+                actualNodeId = self.iGraph.vs[i]["name"]
                 if partitions.membership[i] in communityAssignment.keys():
-                    communityAssignment[partitions.membership[i]].append(self.iGraph.vs[i]["name"])
+                    communityAssignment[partitions.membership[i]].append(actualNodeId)
                 else:
-                    communityAssignment[partitions.membership[i]] = [self.iGraph.vs[i]["name"]]
+                    communityAssignment[partitions.membership[i]] = [actualNodeId]
+                #set community assignment in numpy array
+                communities[self.node_to_index[actualNodeId]][tCount] = partitions.membership[i]
 
-            self.writeParitionsToFile(communityAssignment, time_slice)
+            modularity = partitions.quality()
+
+            print ("Time slice: (%f, %f), Modularity = %f", time_slice[0], time_slice[1], modularity)
+            
+            self.writeParitionsToFile(communityAssignment, tCount)
+
+            tCount += 1
+
+        np.save("leiden-assignments.csv", communities)
+
+        self.communities = communities
 
     def calc_communities_spectral(self, k, weight_fn=None, weighted=False):
         for subgraph, time_slice in zip(self.sub_graphs, self.time_slices):
