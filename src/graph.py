@@ -133,6 +133,11 @@ class Graph():
 
     def set_time_delta(self, time_delta):
         self.time_delta = time_delta
+        self.num_time_slices = (self._end_time - self._start_time) / time_delta
+
+    def set_num_time_slices(self, num_time_slices):
+        self.num_time_slices = num_time_slices
+        self.time_delta = (self._end_time - self._start_time) / num_time_slices
 
     def gen_next_subgraph(self, weight_fn=None):
         start_time = self._cur_time
