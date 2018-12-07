@@ -67,6 +67,11 @@ class Graph():
             # Add the edge and assign the timestamp as an attribute
             edge_id = self.graph.AddEdge(src_id, dst_id)
             self.graph.AddIntAttrDatE(edge_id, timestamp, 'time')
+
+        # Calculate self.node_to_index representing the whole self.graph
+        self.node_to_index = dict()
+        for i, n in enumerate(self.graph.Nodes()):
+            self.node_to_index[n.GetId()] = i
     
     def calc_communities(self, method, weight_fn=None, weighted=False):
         """
