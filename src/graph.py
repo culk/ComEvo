@@ -393,7 +393,7 @@ class Graph():
         new_igraph.es['weight'] = edge_weights
         return new_igraph
 
-    def writeCommunityToFile(communities, index):
+    def writeCommunityToFile(self, communities, index):
         communityAssignment = {}
         for i, community in enumerate(communities):
             communityAssignment[i] = sorted(community)
