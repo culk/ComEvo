@@ -14,6 +14,7 @@ import snap
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
+from matplotlib.font_manager import FontProperties
 
 import config
 
@@ -115,7 +116,6 @@ class Graph():
         """
         assert self.communities is not None
 
-        print(self.communities[:8])
         sanitized = np.zeros_like(self.communities)
         sanitized.fill(-1)
         sanitized[:, 0] = self.communities[:, 0]
@@ -168,8 +168,8 @@ class Graph():
                 sanitized[curr_l_nodes, t] = new_l
                 prev_labels.discard(new_l)
 
-        print(sanitized[:8])
         self.sanitized_communities = sanitized
+        self.communities = sanitized
 
         return sanitized
 
@@ -233,7 +233,7 @@ class Graph():
                 if sum_cut_edges[label] == 0:
                     conductance[label, t] = 0
                 else:
-                    conductance[label, t] = sum_cut_edges[label] / denom
+                    conductance[label, t] = sum_cut_edges[label] / float(denom)
             t += 1
 
         self.conductance = conductance
@@ -430,6 +430,7 @@ class Graph():
             #if communities[i, :3] != [-1, -1, -1]:
                 #print communities[i][:3]
 
+        np.save('fastgreedy-assignments.npy', communities)
         self.communities = communities
         self.modularity = modularity
 
@@ -529,11 +530,16 @@ class Graph():
         plt.title('Temporal Community Evolution - Graph Modularity (%s)' % self.algo_applied)
         plt.savefig('modularity_%s.png' % self.algo_applied)
 
-    def plot_conductance(self, max_communities):
-        for i in xrange(min(max_communities, len(self.conductance))):
-            plt.plot(range(1, len(self.conductance[i])+1), self.conductance[i], 'o-', label=str(i))
-        plt.xlabel('Cumulative Time Slice #')
-        plt.ylabel('Community Conductance')
-        plt.title('Temporal Community Evolution - Conductance (%s)' % self.algo_applied)
-        plt.legend()
+    def plot_conductance(self, y_data=None, max_communities=10):
+        if y_data == None:
+            y_data = self.conductance
+        cond_plot = plt.subplot(111)
+        fontP = FontProperties()
+        fontP.set_size('small')
+        for i in xrange(len(y_data)):
+            cond_plot.plot(range(1, len(y_data[i])+1), y_data[i], 'o-', label=str(i))
+        cond_plot.set_xlabel('Cumulative Time Slice #')
+        cond_plot.set_ylabel('Community Conductance')
+        cond_plot.set_title('Temporal Community Evolution - Conductance (%s)' % self.algo_applied)
+        cond_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
         plt.savefig('conductance_%s.png' % self.algo_applied)

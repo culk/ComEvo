@@ -27,6 +27,7 @@ def main():
     graph.get_conductance(weight_fn=exp_fn)
     graph.export_results('6months_leiden')
     #graph.plot_modularity()
+    #graph.plot_conductance()
 
 if __name__ == '__main__':
     main()
