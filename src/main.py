@@ -23,6 +23,7 @@ def main():
     graph.calc_communities("leiden-algorithm", weight_fn=linear_fn, weighted=True)
     #graph.calc_communities("fastgreedy", weight_fn=None, weighted=False)
     #graph.get_conductance()
+    graph.plot_modularity()
 
 if __name__ == '__main__':
     main()

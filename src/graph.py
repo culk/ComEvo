@@ -10,6 +10,10 @@ import networkx as nx # TODO: remove when conductance updated
 import numpy as np
 import snap
 
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
+
 import config
 
 
@@ -316,6 +320,7 @@ class Graph():
         """
         # Initialize communities
         communities = -1 * np.ones((len(self.node_to_index), self.num_time_slices), dtype=int)
+        modularity = np.zeros((self.num_time_slices), dtype=float)
 
         t = 0
         for subgraph, time_slice in self.gen_next_subgraph(weight_fn):
@@ -328,16 +333,17 @@ class Graph():
 
             # Calculate communities
             partitions = leidenalg.find_partition(self.iGraph,leidenalg.ModularityVertexPartition, weights=self.iGraph.es['weight'])
-            modularity = partitions.quality()
+            modularity[t] = partitions.quality()
             for i in xrange(len(self.iGraph.vs)):
                 node_id = self.iGraph.vs[i]['name']
                 communities[self.node_to_index[node_id], t] = partitions.membership[i]
 
+            print('Time slice: %s, Modularity = %f' % (time_slice, modularity[t]))
             t += 1
-            print('Time slice: %s, Modularity = %f' % (time_slice, modularity))
 
         np.save('leiden-assignments.npy', communities)
         self.communities = communities
+        self.modularity = modularity
 
     def calc_communities_fastgreedy(self):
         """
@@ -345,26 +351,28 @@ class Graph():
         community labels for each node in every time slice subgraph.
         """
         communities = -1 * np.ones((len(self.node_to_index), self.num_time_slices), dtype=int)
+        modularity = np.zeros((self.num_time_slices), dtype=float)
 
         t = 0
         for subgraph, time_slice in self.gen_next_subgraph():
             subgraph_clean = snap.ConvertGraph(snap.PUNGraph, subgraph)
             snap.DelSelfEdges(subgraph_clean)
             CmtyV = snap.TCnComV()
-            modularity = snap.CommunityCNM(subgraph_clean, CmtyV)
+            modularity[t] = snap.CommunityCNM(subgraph_clean, CmtyV)
 
             for label, CnCom in enumerate(CmtyV):
                 for node_id in CnCom:
                     communities[self.node_to_index[node_id], t] = label
 
+            print('Time slice: %s, Modularity = %f' % (time_slice, modularity[t]))
             t += 1
-            print('Time slice: %s, Modularity = %f' % (time_slice, modularity))
 
         #for i in xrange(len(communities)):
             #if communities[i, :3] != [-1, -1, -1]:
                 #print communities[i][:3]
 
         self.communities = communities
+        self.modularity = modularity
 
     def calculate_graph_modularity(self, graph, communities):
         assert communities is not None
@@ -454,3 +462,19 @@ class Graph():
             for key in communityAssignment.keys():
                 filename.write(str(key) + ":" + str(communityAssignment[key]) + "\n")
         filename.close()
+
+    def plot_modularity(self):
+        plt.plot(range(1, len(self.modularity)+1), self.modularity, 'o-')
+        plt.xlabel('Cumulative Time Slice #')
+        plt.ylabel('Grpah Modularity')
+        plt.title('Temporal Community Evolution - Graph Modularity')
+        plt.savefig('modularity.png')
+
+    def plot_conductance(self, max_communities):
+        for i in xrange(min(max_communities, len(self.conductance))):
+            plt.plot(range(1, len(self.conductance[i])+1), self.conductance[i], 'o-', label=str(i))
+        plt.xlabel('Cumulative Time Slice #')
+        plt.ylabel('Community Conductance')
+        plt.title('Temporal Community Evolution - Conductance')
+        plt.legend()
+        plt.savefig('conductance.png')
