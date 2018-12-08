@@ -169,7 +169,7 @@ class Graph():
                     #delete the community label to not process any further
                     next_distinct_communities = np.delete(next_distinct_communities, np.argwhere(next_distinct_communities == next_label_i))
 
-            if global_counter != 0:
+            if global_counter == 0:
                 global_counter = max(i, global_counter + 1)
 
             #if there are more elements in j, then update them
@@ -244,7 +244,7 @@ class Graph():
                 if sum_cut_edges[label] == 0:
                     conductance[label, t] = 0
                 else:
-                    conductance[label, t] = sum_cut_edges[label] / denom
+                    conductance[label, t] = sum_cut_edges[label] / float(denom)
             t += 1
 
         self.conductance = conductance
