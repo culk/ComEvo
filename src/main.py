@@ -16,14 +16,17 @@ from utilities import *
 
 
 def main():
-    graph = Graph('30days')
-    graph.print_summary()
-    graph.preprocess()
-    graph.set_num_time_slices(10)
-    graph.calc_communities("leiden-algorithm", weight_fn=linear_fn, weighted=True)
-    #graph.calc_communities("fastgreedy", weight_fn=None, weighted=False)
-    #graph.get_conductance()
-    graph.plot_modularity()
+    graph = Graph('1year')
+    #graph.print_summary()
+    #graph.preprocess() # only needed to delete small nodes
+    graph.set_num_time_slices(12)
+    graph.calc_communities("leiden-algorithm", weight_fn=exp_fn, weighted=True)
+    #graph.calc_communities('fastgreedy', weight_fn=None, weighted=False)
+    graph.export_results('leiden_base')
+    graph.sanitize_communities()
+    graph.get_conductance(weight_fn=exp_fn)
+    graph.export_results('leiden_sanitized')
+    #graph.plot_modularity()
 
 if __name__ == '__main__':
     main()
