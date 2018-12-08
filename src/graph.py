@@ -6,11 +6,8 @@ import time
 
 import igraph as ig
 import leidenalg
-import networkx as nx
-from networkx import edge_betweenness_centrality
-from networkx.algorithms import community
+import networkx as nx # TODO: remove when conductance updated
 import numpy as np
-from scipy.cluster.vq import kmeans, whiten
 import snap
 
 import config
