@@ -14,6 +14,7 @@ import snap
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
+from matplotlib.font_manager import FontProperties
 
 import config
 
@@ -537,11 +538,14 @@ class Graph():
         plt.title('Temporal Community Evolution - Graph Modularity (%s)' % self.algo_applied)
         plt.savefig('modularity_%s.png' % self.algo_applied)
 
-    def plot_conductance(self, max_communities):
-        for i in xrange(min(max_communities, len(self.conductance))):
-            plt.plot(range(1, len(self.conductance[i])+1), self.conductance[i], 'o-', label=str(i))
-        plt.xlabel('Cumulative Time Slice #')
-        plt.ylabel('Community Conductance')
-        plt.title('Temporal Community Evolution - Conductance (%s)' % self.algo_applied)
-        plt.legend()
+    def plot_conductance(self, y_data=self.conductance, max_communities=10):
+        cond_plot = plt.subplot(111)
+        fontP = FontProperties()
+        fontP.set_size('small')
+        for i in xrange(min(max_communities, len(y_data))):
+            cond_plot.plot(range(1, len(y_data[i])+1), y_data[i], 'o-', label=str(i))
+        cond_plot.set_xlabel('Cumulative Time Slice #')
+        cond_plot.set_ylabel('Community Conductance')
+        cond_plot.set_title('Temporal Community Evolution - Conductance (%s)' % self.algo_applied)
+        cond_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
         plt.savefig('conductance_%s.png' % self.algo_applied)
