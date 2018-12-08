@@ -74,29 +74,6 @@ class Graph():
         # Indicator of which community detection algorithm has been applied
         self.algo_applied = 'None'
 
-        with open(path, 'r') as edge_list:
-            for line in edge_list:
-                # Parse the line
-                src_id, dst_id, timestamp = (int(i) for i in line.split(' '))
-
-                # Update start and end time
-                if not self._start_time or self._start_time > timestamp:
-                    self._start_time = timestamp
-                if not self._end_time or self._end_time < timestamp:
-                    self._end_time = timestamp
-
-                # Add the nodes if not already present
-                if not self.graph.IsNode(src_id): self.graph.AddNode(src_id)
-                if not self.graph.IsNode(dst_id): self.graph.AddNode(dst_id)
-
-                # Add the edge and assign the timestamp as an attribute
-                edge_id = self.graph.AddEdge(src_id, dst_id)
-                self.graph.AddIntAttrDatE(edge_id, timestamp, 'time')
-
-    def preprocess(self):
-        snap.DelDegKNodes(self.graph, 1, 1)
-        snap.DelDegKNodes(self.graph, 2, 2)
-        snap.DelDegKNodes(self.graph, 3, 3)
         for edge in self.edge_list:
             # Parse the line
             src_id, dst_id, timestamp = edge
@@ -114,17 +91,17 @@ class Graph():
         for i, n in enumerate(self.graph.Nodes()):
             self.node_to_index[n.GetId()] = i
 
-        # TODO: initialize self.communities as a N*T matrix
+    def preprocess(self):
+        snap.DelDegKNodes(self.graph, 1, 1)
+        snap.DelDegKNodes(self.graph, 2, 2)
+        snap.DelDegKNodes(self.graph, 3, 3)
 
     def sanitize_communities(self):
         """
         Works on the self.communities and sanities it to have the same community labels across timestamps
         """
-
         assert self.communities is not None
 
-        
-    
     def calc_communities(self, method, weight_fn=None, weighted=False):
         """
         Update the internal weights, sub graphs, and communities by calling the
