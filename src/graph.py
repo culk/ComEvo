@@ -524,19 +524,37 @@ class Graph():
         filename.close()
 
     def select_best_communities(self, num_best=10):
-        conductance = zip(range(1, len(self.conductance)+1), self.conductance)
+        conductance = zip(range(len(self.conductance)), self.conductance)
         # Filter out all-zero rows
         conductance = filter(lambda x: len(np.nonzero(x[1])[0]) > 0, conductance)
         # Filter out rows with last timeslice conductance == 0
         final_nonzero_conductance = filter(lambda x: x[1][-1] > 0, conductance)
         best_conductance = sorted(final_nonzero_conductance, key=lambda x: x[1][-1], reverse=False)[:num_best]
+        # Sort best_conductance again based on community label ID
+        best_conductance = sorted(best_conductance, key=lambda x: x[0])
         return best_conductance
+
+    def get_numnodes_from_comm_labels(self, comm_labels):
+        counts_at_time = []
+        for i in xrange(self.num_time_slices):
+            unique, counts = np.unique(self.communities[:, i], return_counts=True)
+            comm_counts = dict(zip(unique, counts))
+            counts_at_time.append(comm_counts)
+        comm_numnodes = []
+        for comm_label in comm_labels:
+            comm_label_size = np.zeros((self.num_time_slices))
+            for i in xrange(self.num_time_slices):
+                if comm_label in counts_at_time[i]:
+                    comm_label_size[i] = counts_at_time[i][comm_label]
+            comm_numnodes.append([comm_label, comm_label_size])
+        return comm_numnodes
+
 
     def plot_modularity(self):
         plt.figure()
-        plt.plot(range(1, len(self.modularity)+1), self.modularity, 'o-')
+        plt.plot(range(len(self.modularity)), self.modularity, 'o-')
         plt.xlabel('Cumulative Time Slice #')
-        plt.ylabel('Grpah Modularity')
+        plt.ylabel('Graph Modularity')
         plt.title('Temporal Community Evolution - Graph Modularity (%s)' % self.algo_applied)
         plt.savefig('modularity_%s.png' % self.algo_applied)
 
@@ -550,15 +568,36 @@ class Graph():
             'grey', 'black', 'pink', 'purple', 'orange'
         ]
         if y_data == None:
-            y_data = zip(range(1, len(self.conductance)+1), self.conductance)
+            y_data = zip(range(len(self.conductance)), self.conductance)
         plt.figure()
         cond_plot = plt.subplot(111)
         fontP = FontProperties()
         fontP.set_size('small')
         for i in xrange(min(max_communities, len(y_data))):
-            cond_plot.plot(range(1, len(y_data[i][1])+1), y_data[i][1], 'o-', label=y_data[i][0], color=plot_colors[i % len(plot_colors)])
+            cond_plot.plot(range(len(y_data[i][1])), y_data[i][1], 'o-', label=y_data[i][0], color=plot_colors[i % len(plot_colors)])
         cond_plot.set_xlabel('Cumulative Time Slice #')
         cond_plot.set_ylabel('Community Conductance')
         cond_plot.set_title('Temporal Community Evolution - Conductance (%s)' % self.algo_applied)
         cond_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
         plt.savefig('conductance_%s.png' % self.algo_applied)
+
+    def plot_numnodes(self, comm_numnodes):
+        """
+        y_data: list[] of 2-tuples
+            (community_label, np.array(conductance_values_at_timeslices))
+        """
+        plot_colors = [
+            'blue', 'green', 'red', 'cyan', 'magenta',
+            'grey', 'black', 'pink', 'purple', 'orange'
+        ]
+        plt.figure()
+        numnodes_plot = plt.subplot(111)
+        fontP = FontProperties()
+        fontP.set_size('small')
+        for i in xrange(len(comm_numnodes)):
+            numnodes_plot.semilogy(range(len(comm_numnodes[i][1])), comm_numnodes[i][1], 'o-', label=comm_numnodes[i][0], color=plot_colors[i % len(plot_colors)])
+        numnodes_plot.set_xlabel('Cumulative Time Slice #')
+        numnodes_plot.set_ylabel('Community Size')
+        numnodes_plot.set_title('Temporal Community Evolution - Community Size (%s)' % self.algo_applied)
+        numnodes_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
+        plt.savefig('numnodes_%s.png' % self.algo_applied)
