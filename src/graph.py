@@ -279,8 +279,8 @@ class Graph():
                 node_id = self.iGraph.vs[i]['name']
                 communities[self.node_to_index[node_id], t] = partitions.membership[i]
 
-            t += 1
             print('Time slice: %s, Modularity = %f' % (time_slice, modularity[t]))
+            t += 1
 
         np.save('leiden-assignments.npy', communities)
         self.communities = communities
@@ -305,8 +305,8 @@ class Graph():
                 for node_id in CnCom:
                     communities[self.node_to_index[node_id], t] = label
 
-            t += 1
             print('Time slice: %s, Modularity = %f' % (time_slice, modularity[t]))
+            t += 1
 
         #for i in xrange(len(communities)):
             #if communities[i, :3] != [-1, -1, -1]:
