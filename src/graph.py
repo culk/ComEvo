@@ -19,7 +19,7 @@ import leidenalg
 
 class Graph():
     graph = None # snap.TNEANet containing all edges
-    communities = None # Matrix of shape T x N containing community labels --- For now considering as list of lists
+    communities = None # Numpy matrix of shape N x T containing community labels
     edge_list = []
 
     networkx_graph = None
@@ -132,7 +132,7 @@ class Graph():
             self.calc_communities_girvan_newman(weight_fn, weighted)
         elif method == 'spectral':
             k = 10 # TODO: replace with found best k
-            self.calc_communities_spectral(k, weight_fn, weighted)
+            self.calc_communities_spectral(k, weight_fn)
         elif method == 'fastgreedy':
             self.calc_communities_fastgreedy()
         else: # etc.
@@ -260,6 +260,7 @@ class Graph():
             self.sub_graphs[i].AddIntAttrDatE(edge_id, timestamp, 'time')
 
     def save_subgraph_summaries(self, filename):
+        # DEPRECATED
         # TODO: does not work with new subgraph function
         """
         Write the summary statistics for each subgraph to a csv file.
@@ -293,6 +294,7 @@ class Graph():
 
     #Private Mathods
     def calc_communities_girvan_newman(self, weight_fn=None, weighted=False):
+        # DEPRECATED
         """
         Create Network graphs for each of the subgraphs
         Use Networkx Algorithm to Find Communities
@@ -317,43 +319,34 @@ class Graph():
         Create igraphs for each of the subgraphs so that the Lieden can work with it.
         Use Networkx Algorithm to Find Communities
         """
-        #init communities
-        communities = [[-1 for j in xrange(self.num_time_slices)] for i in xrange(len(self.node_to_index))]
-        tCount = 0
+        # Initialize communities
+        communities = -1 * np.ones((len(self.node_to_index), self.num_time_slices), dtype=int)
 
+        t = 0
         for subgraph, time_slice in self.gen_next_subgraph(weight_fn):
+            # Create an igraph representation of the subgraph
             self.iGraph = self.create_igraph(subgraph)
 
-            #delete degree 0 nodes
+            # Delete degree 0 nodes
             to_delete_ids = [v.index for v in self.iGraph.vs if v.degree() == 0]
             self.iGraph.delete_vertices(to_delete_ids)
 
-            partitions = leidenalg.find_partition(self.iGraph, leidenalg.ModularityVertexPartition, weights=self.iGraph.es["weight"]);
-
-            communityAssignment = {}
-            for i in range(len(self.iGraph.vs)):
-                actualNodeId = self.iGraph.vs[i]["name"]
-                if partitions.membership[i] in communityAssignment.keys():
-                    communityAssignment[partitions.membership[i]].append(actualNodeId)
-                else:
-                    communityAssignment[partitions.membership[i]] = [actualNodeId]
-                #set community assignment in numpy array
-                communities[self.node_to_index[actualNodeId]][tCount] = partitions.membership[i]
-
+            # Calculate communities
+            partitions = leidenalg.find_partition(self.iGraph,leidenalg.ModularityVertexPartition, weights=self.iGraph.es['weight'])
             modularity = partitions.quality()
+            for i in xrange(len(self.iGraph.vs)):
+                node_id = self.iGraph.vs[i]['name']
+                communities[self.node_to_index[node_id], t] = partitions.membership[i]
 
-            print ("Time slice: (%f, %f), Modularity = %f", time_slice[0], time_slice[1], modularity)
-            
-            self.writeParitionsToFile(communityAssignment, tCount)
+            t += 1
+            print('Time slice: %s, Modularity = %f' % (time_slice, modularity))
 
-            tCount += 1
-
-        np.save("leiden-assignments", communities)
-
+        np.save('leiden-assignments.npy', communities)
         self.communities = communities
 
-    def calc_communities_spectral(self, k, weight_fn=None, weighted=False):
-        for subgraph, time_slice in zip(self.sub_graphs, self.time_slices):
+    def calc_communities_spectral(self, k, weight_fn=None):
+        # UNIMPLEMENTED
+        for subgraph, time_slice in self.gen_next_subgraph(weight_fn):
             print(time_slice)
             print(subgraph.GetNodes())
             print(subgraph.GetEdges())
@@ -385,6 +378,7 @@ class Graph():
             # TODO: assign clusters based on closest centroid
 
     def get_matrices(self, graph, weight_fn=None):
+        # UNIMPLEMENTED
         # TODO: update to use a weight function
         num_nodes = graph.GetNodes()
         D = np.zeros(num_nodes)
@@ -408,27 +402,25 @@ class Graph():
 
     # TODO: Make sure community labels have consistent mapping across time slices
     def calc_communities_fastgreedy(self):
-        communities = [[-1 for j in xrange(self.num_time_slices)] for i in xrange(len(self.node_to_index))]
+        communities = -1 * np.ones((len(self.node_to_index), self.num_time_slices), dtype=int)
 
-        t_count = 0
-        for (subgraph, time_slice) in self.gen_next_subgraph():
+        t = 0
+        for subgraph, time_slice in self.gen_next_subgraph():
             subgraph_clean = snap.ConvertGraph(snap.PUNGraph, subgraph)
             snap.DelSelfEdges(subgraph_clean)
             CmtyV = snap.TCnComV()
             modularity = snap.CommunityCNM(subgraph_clean, CmtyV)
 
-            label_counter = 0
-            for CnCom in CmtyV:
-                for nid in CnCom:
-                    communities[self.node_to_index[nid]][t_count] = label_counter
-                label_counter += 1
+            for label, CnCom in enumerate(CmtyV):
+                for node_id in CnCom:
+                    communities[self.node_to_index[node_id], t] = label
 
-            print ("Time slice: (%f, %f), Modularity = %f", time_slice[0], time_slice[1], modularity)
-            t_count += 1
+            t += 1
+            print('Time slice: %s, Modularity = %f' % (time_slice, modularity))
 
-        for i in xrange(len(communities)):
-            if (communities[i][:3] != [-1, -1, -1]):
-                print communities[i][:3]
+        #for i in xrange(len(communities)):
+            #if communities[i, :3] != [-1, -1, -1]:
+                #print communities[i][:3]
 
         self.communities = communities
 

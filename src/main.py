@@ -109,7 +109,7 @@ def main():
     graph = Graph('30days')
     graph.print_summary()
     graph.preprocess()
-    graph.set_time_delta(86400*3)
+    graph.set_num_time_slices(10)
     graph.calc_communities("leiden-algorithm", weight_fn=linear_fn, weighted=True)
     #graph.calc_communities("fastgreedy", weight_fn=None, weighted=False)
     #graph.get_conductance()
