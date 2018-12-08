@@ -225,7 +225,10 @@ class Graph():
             # Use above values for calculating conductance for each community.
             for label in xrange(num_communities):
                 denom = min(volume_S_edges[label], np.sum(volume_S_edges) - volume_S_edges[label])
-                conductance[label, t] = sum_cut_edges[label] / denom
+                if sum_cut_edges[label] == 0:
+                    conductance[label, t] = 0
+                else:
+                    conductance[label, t] = sum_cut_edges[label] / denom
             t += 1
 
         self.conductance = conductance
