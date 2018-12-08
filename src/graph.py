@@ -146,7 +146,6 @@ class Graph():
             next_distinct_communities = np.unique(self.communities[:, timestep+1])
             next_distinct_communities = np.delete(next_distinct_communities, np.where(next_distinct_communities == -1))
             
-            #pdb.set_trace()
             for i in range(len(current_distinct_communities)):
                 #current timestep, get Jaccard wrt all the other communities
                 nodes_i = np.where(sanitized_communities[:, timestep] == current_distinct_communities[i])[0]
@@ -166,7 +165,6 @@ class Graph():
 
                     scores.append(jaccard)
 
-                #pdb.set_trace()
                 #if the elements in next_distinct_communities reached 0, we are already done
                 if len(next_distinct_communities) != 0:
                     next_label_i = next_distinct_communities[np.argmax(scores)]
@@ -179,22 +177,15 @@ class Graph():
                     #delete the community label to not process any further
                     next_distinct_communities = np.delete(next_distinct_communities, np.argwhere(next_distinct_communities == next_label_i))
 
-            #pdb.set_trace()
             global_counter = max(i, global_counter + 1)
             #if there are more elements in j, then update them
             for j in range(len(next_distinct_communities)):
-                #pdb.set_trace()
                 indices_to_update = np.argwhere(self.communities[:, timestep + 1] == next_distinct_communities[j])
                 
                 sanitized_communities[np.squeeze(indices_to_update), timestep + 1] = global_counter
                 
-                #pdb.set_trace()
-                
-                #for k in range(len(indices_to_update)):
-                #    sanitized_communities[indices_to_update[k][0]][timestep + 1] = i
                 global_counter += 1
 
-        pdb.set_trace()
         sanitized_communities[sanitized_communities == -2] = -1
         self.sanitized_communities = sanitized_communities
 
