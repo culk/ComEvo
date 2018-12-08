@@ -168,7 +168,8 @@ class Graph():
                     #delete the community label to not process any further
                     next_distinct_communities = np.delete(next_distinct_communities, np.argwhere(next_distinct_communities == next_label_i))
 
-            global_counter = max(i, global_counter + 1)
+            if global_counter != 0:
+                global_counter = max(i, global_counter + 1)
 
             #if there are more elements in j, then update them
             for j in range(len(next_distinct_communities)):
