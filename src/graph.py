@@ -10,6 +10,10 @@ import networkx as nx # TODO: remove when conductance updated
 import numpy as np
 import snap
 
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
+
 import config
 
 
@@ -403,3 +407,19 @@ class Graph():
             for key in communityAssignment.keys():
                 filename.write(str(key) + ":" + str(communityAssignment[key]) + "\n")
         filename.close()
+
+    def plot_modularity(self):
+        plt.plot(range(1, len(self.modularity)+1), self.modularity, 'o-')
+        plt.xlabel('Cumulative Time Slice #')
+        plt.ylabel('Grpah Modularity')
+        plt.title('Temporal Community Evolution - Graph Modularity')
+        plt.savefig('modularity.png')
+
+    def plot_conductance(self, max_communities):
+        for i in xrange(min(max_communities, len(self.conductance))):
+            plt.plot(range(1, len(self.conductance[i])+1), self.conductance[i], 'o-', label=str(i))
+        plt.xlabel('Cumulative Time Slice #')
+        plt.ylabel('Community Conductance')
+        plt.title('Temporal Community Evolution - Conductance')
+        plt.legend()
+        plt.savefig('conductance.png')
