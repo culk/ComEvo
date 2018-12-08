@@ -535,6 +535,7 @@ class Graph():
         filename.close()
 
     def plot_modularity(self):
+        plt.figure()
         plt.plot(range(1, len(self.modularity)+1), self.modularity, 'o-')
         plt.xlabel('Cumulative Time Slice #')
         plt.ylabel('Grpah Modularity')
@@ -544,6 +545,7 @@ class Graph():
     def plot_conductance(self, y_data=None, max_communities=10):
         if y_data == None:
             y_data = self.conductance
+        plt.figure()
         cond_plot = plt.subplot(111)
         fontP = FontProperties()
         fontP.set_size('small')
