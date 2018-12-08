@@ -16,6 +16,10 @@ import config
 class Graph():
     graph = None # snap.TNEANet containing all edges
     communities = None # Numpy matrix of shape N x T containing community labels
+    modularity = None # Numpy array of shape T
+    # Numpy matrix of shape C x T (where C is number of communities)
+    conductance = None
+
     edge_list = []
 
     networkx_graph = None
@@ -127,24 +131,55 @@ class Graph():
         else: # etc.
             pass
 
-    def get_conductance(self, weighted=False):
+    def get_conductance(self, weight_fn=None):
         """
-        Calculates the average weighted or unweighted conductance for the graph
-        given the already calculated sub graphs and communities.
+        Calculates the weighted or unweighted conductance for the graph for each
+        community at each time slice given the already calculated communities
+        for each subgraph.
 
-        Returns a list of conductance values.
+        Returns a matrix of conductance values.
         """
         assert self.communities is not None
 
-        minConductance = float(sys.maxint)
-        graphNodes = list(self.networkx_graph.nodes)
-        for community in self.communities:
-            #conductance = nx.algorithms.cuts.conductance(self.networkx_graph, set(community), set(graphNodes).difference(set(community)), weight='weight')
-            conductance = nx.algorithms.cuts.conductance(self.networkx_graph, set(community), set(graphNodes).difference(set(community)))
-            print "conductance = " + str(conductance)
-            if minConductance > conductance:
-                minConductance = conductance
-        return minConductance
+        # Initialize conductance values.
+        num_communities = np.max(self.communities) + 1
+        conductance = np.zeros((num_communities, self.num_time_slices))
+
+        # Calculate the conductance for each time slice.
+        t = 0
+        for subgraph, time_slice in self.gen_next_subgraph(weight_fn):
+            # Track the sum of the edge weights for calculating conductance for
+            # each community. Communities that do not exist in the time slice
+            # will have conductance of 0.
+            volume_S_edges = np.zeros(num_communities)
+            sum_cut_edges = np.zeros(num_communities)
+            for edge in subgraph.Edges():
+                # Calculate the community labels for each node.
+                src_id, dst_id = edge.GetSrcNId(), edge.GetDstNId()
+                weight = subgraph.GetFltAttrDatE(edge, 'weight')
+                src_community = self.communities[self.node_to_index[src_id], i]
+                dst_community = self.communities[self.node_to_index[dst_id], i]
+
+                # All nodes in the current subgraph should have a community.
+                assert src_community != -1 and dst_community != -1
+
+                # For calculating the numerator (the edges originating from the
+                # community).
+                if src_community != dst_community:
+                    sum_cut_edges[src_community] += weight
+                # For calculating the denominator (min of the sum of edges
+                # originating from the community or from the rest of the graph).
+                volume_S_edges[src_community] += weight
+
+            # Use above values for calculating conductance for each community.
+            for label in xrange(num_communities):
+                denom = min(volume_S_edges[label], np.sum(volume_S_edges) - volume_S_edges[label])
+                conductance[label, t] = sum_cut_edges[label] / denom
+            t += 1
+
+        self.conductance = conductance
+
+        return conductance
 
     def print_summary(self):
         """
@@ -155,6 +190,25 @@ class Graph():
         print('first edge time: %d' % self._start_time)
         print('last edge time: %d' % self._end_time)
         print('time period: %d' % (self._end_time - self._start_time))
+
+    def export_results(self, exp_name='test'):
+        """
+        Save a copy of the values calculated for the current experiment.
+
+        exp_name should be a unique string used to identify the files saved.
+        """
+        if self.communities:
+            print('Communities found, saving...')
+            np.save('../results/%s_communities.npy', self.communities)
+            print('Communities saved')
+        if self.modularity:
+            print('Modularity found, saving...')
+            np.save('../results/%s_modularity.npy', self.modularity)
+            print('Modularity saved')
+        if self.conductance:
+            print('Conductance found, saving...')
+            np.save('../results/%s_conductance.npy', self.conductance)
+            print('Conductance saved')
 
     def set_time_delta(self, time_delta):
         """
@@ -214,7 +268,8 @@ class Graph():
             if self.subgraph.IsEdge(src_id, dst_id):
                 # Update the edge weight with the previous weight
                 edge_id = self.subgraph.GetEI(src_id, dst_id).GetId()
-                weight += self.subgraph.GetFltAttrDatE(edge_id, 'weight')
+                if weight_fn is not None:
+                    weight += self.subgraph.GetFltAttrDatE(edge_id, 'weight')
             else:
                 # Add the edge and initialize with the weight
                 edge_id = self.subgraph.AddEdge(src_id, dst_id)
