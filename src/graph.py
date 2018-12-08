@@ -658,8 +658,16 @@ class Graph():
                     num_similar += 1
             similarity = float(num_similar) / float(len(egonet))
             community_similarity.append(similarity)
-            # TODO: Identify all edges in the egonet and add them to another list
+
+            # Calculate the list of egonet edges
+            egonet_edge_list = []
+            for src in egonet:
+                for dst in egonet:
+                    if subgraph.IsEdge(src, dst):
+                        egonet_edge_list.append((src, dst))
+
             self.egonets.append(egonet)
+            self.egonet_edge_lists.append(egonet_edge_list)
             t += 1
 
         # Plot the values
