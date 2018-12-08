@@ -527,11 +527,9 @@ class Graph():
         conductance = zip(range(1, len(self.conductance)+1), self.conductance)
         # Filter out all-zero rows
         conductance = filter(lambda x: len(np.nonzero(x[1])[0]) > 0, conductance)
-        print conductance
         # Filter out rows with last timeslice conductance == 0
         final_nonzero_conductance = filter(lambda x: x[1][-1] > 0, conductance)
         best_conductance = sorted(final_nonzero_conductance, key=lambda x: x[1][-1], reverse=False)[:num_best]
-        print best_conductance
         return best_conductance
 
     def plot_modularity(self):
