@@ -1,21 +1,20 @@
 import csv
 import datetime
+import pdb
+import sys
 import time
 
+import igraph as ig
+import leidenalg
+import networkx as nx
+from networkx import edge_betweenness_centrality
+from networkx.algorithms import community
 import numpy as np
 from scipy.cluster.vq import kmeans, whiten
 import snap
 
-import sys
-import pdb
-
 import config
-import networkx as nx
-from networkx import edge_betweenness_centrality
-from networkx.algorithms import community
 
-import igraph as ig
-import leidenalg
 
 class Graph():
     graph = None # snap.TNEANet containing all edges
@@ -124,15 +123,8 @@ class Graph():
         function for community detection for the specified method.
         """
         # Calculate community membership for each time slice
-        if method == 'louvain':
-            pass
-        elif method == "leiden-algorithm":
+        if method == "leiden-algorithm":
             self.calc_communities_leiden_algorithm(weight_fn)
-        elif method == 'girvan-newman':
-            self.calc_communities_girvan_newman(weight_fn, weighted)
-        elif method == 'spectral':
-            k = 10 # TODO: replace with found best k
-            self.calc_communities_spectral(k, weight_fn)
         elif method == 'fastgreedy':
             self.calc_communities_fastgreedy()
         else: # etc.
@@ -182,6 +174,10 @@ class Graph():
         self.time_delta = (self._end_time - self._start_time + 1) / num_time_slices
 
     def gen_next_subgraph(self, weight_fn=None):
+        """
+        Generate pairs of (subgraph, time slice) which contains snapshots of
+        the graph based on the edges known at the end of the current time slice.
+        """
         # Reset subgraph state
         self._cur_index = 0
         self._cur_time = self._start_time
@@ -190,10 +186,12 @@ class Graph():
         self.subgraph = snap.TNEANet.New()
         self.subgraph.AddFltAttrE('weight')
 
+        # Initialize time values
         start_time = self._cur_time
         end_time = start_time + self.time_delta
         i = self._cur_index
         while i < len(self.edge_list):
+            # Parse the edge
             src_id, dst_id, timestamp = self.edge_list[i]
 
             # Yield if edge is outside of time slice
@@ -226,42 +224,7 @@ class Graph():
             self.subgraph.AddFltAttrDatE(edge_id, weight, 'weight')
             i += 1
 
-    def update_subgraphs(self, time_delta):
-        # TODO: debricate after switching to new subgraph function
-        """
-        Update the self.sub_graphs to contain a list of graphs each containing
-        only the edges present in that time slice.
-        """
-        # Initialize the sub graphs and time slices
-        self.sub_graphs = []
-        self.time_slices = []
-        for t in range(self._start_time, self._end_time + 1, time_delta):
-            self.sub_graphs.append(snap.TNEANet.New())
-            self.time_slices.append((t, t + time_delta))
-
-        # Add each edge to its respective sub graph
-        for edge in self.graph.Edges():
-            # Parse the edge
-            src_id, dst_id = edge.GetSrcNId(), edge.GetDstNId()
-            timestamp = self.graph.GetIntAttrDatE(edge, 'time')
-
-            # Identify which subgraph index to add the edge to
-            i = (timestamp - self._start_time) / time_delta
-
-            # Add the nodes if not already present in the sub graph
-            if not self.sub_graphs[i].IsNode(src_id):
-                self.sub_graphs[i].AddNode(src_id)
-            if not self.sub_graphs[i].IsNode(dst_id):
-                self.sub_graphs[i].AddNode(dst_id)
-
-            # Add the edge and assign the timestamp as an attribute, preserves
-            # the edge id from the original graph.
-            edge_id = self.sub_graphs[i].AddEdge(src_id, dst_id, edge.GetId())
-            self.sub_graphs[i].AddIntAttrDatE(edge_id, timestamp, 'time')
-
     def save_subgraph_summaries(self, filename):
-        # DEPRECATED
-        # TODO: does not work with new subgraph function
         """
         Write the summary statistics for each subgraph to a csv file.
         """
@@ -280,40 +243,20 @@ class Graph():
             writer.writerow(field_names)
 
             # Calculate statistics for each sub graph
-            for i, start_end in enumerate(self.time_slices):
-                start_time, end_time = start_end
+            i = 0
+            for subgraph, time_slice in self.gen_next_subgraph():
+                start_time, end_time = time_slice
                 field_values = [
                         i,
                         start_time,
                         end_time,
-                        self.sub_graphs[i].GetNodes(),
-                        self.sub_graphs[i].GetEdges(),
-                        snap.CntUniqUndirEdges(self.sub_graphs[i]),
+                        subgraph.GetNodes(),
+                        subgraph.GetEdges(),
                         ]
                 writer.writerow(field_values)
+                i += 1
 
     #Private Mathods
-    def calc_communities_girvan_newman(self, weight_fn=None, weighted=False):
-        # DEPRECATED
-        """
-        Create Network graphs for each of the subgraphs
-        Use Networkx Algorithm to Find Communities
-        """
-        #First do for the entire graph
-        for i, sub_graph in enumerate(self.sub_graphs):
-
-            networkxGraph = self.create_networkx_graph(sub_graph, weighted, weight_fn)
-
-            self.networkx_graph = networkxGraph
-
-            components = community.girvan_newman(networkxGraph, most_valuable_edge=self.most_central_edge)
-            
-            self.communities = tuple(sorted(component) for component in next(components))
-
-            print str(self.communities)
-
-            writeCommunityToFile(self.communities, i)
-
     def calc_communities_leiden_algorithm(self, weight_fn=None):
         """
         Create igraphs for each of the subgraphs so that the Lieden can work with it.
@@ -344,64 +287,11 @@ class Graph():
         np.save('leiden-assignments.npy', communities)
         self.communities = communities
 
-    def calc_communities_spectral(self, k, weight_fn=None):
-        # UNIMPLEMENTED
-        for subgraph, time_slice in self.gen_next_subgraph(weight_fn):
-            print(time_slice)
-            print(subgraph.GetNodes())
-            print(subgraph.GetEdges())
-            # TODO: implement weight function support
-            # calculate normalized laplacian matrix and a node to index mapping
-            D, A, node_to_index = self.get_matrices(subgraph, weight_fn)
-            print(D)
-            D_full = np.zeros_like(A)
-            np.fill_diagonal(D_full, D)
-            L = D_full - A
-            D_star = np.zeros_like(A)
-            np.fill_diagonal(D_star, D**(-.5))
-            L_norm = np.dot(np.dot(D_star, L), D_star)
-
-            # calculate top k eigenvectors
-            values, vectors = np.linalg.eigh(L_norm)
-            indices = np.argsort(values)[1:(k + 1)]
-            features = vectors[:, indices]
-            print(features)
-            print(features.shape)
-
-            # apply clustering algorithm
-            features = whiten(features)
-            centroids, distortion = kmeans(features, k)
-            print(centroids)
-            print(centroids.shape)
-            print(distortion)
-
-            # TODO: assign clusters based on closest centroid
-
-    def get_matrices(self, graph, weight_fn=None):
-        # UNIMPLEMENTED
-        # TODO: update to use a weight function
-        num_nodes = graph.GetNodes()
-        D = np.zeros(num_nodes)
-        A = np.zeros((num_nodes, num_nodes))
-
-        node_to_index = dict()
-        for i, n in enumerate(graph.Nodes()):
-            node_to_index[n.GetId()] = i
-            # degree is union of the set of out and in edges
-            degree = len(set(x for x in n.GetOutEdges())
-                         | set(y for y in n.GetInEdges()))
-            D[i] = degree
-
-        for e in graph.Edges():
-            i = node_to_index[e.GetSrcNId()]
-            j = node_to_index[e.GetDstNId()]
-            A[i, j] = 1
-            A[j, i] = 1
-
-        return D, A, node_to_index
-
-    # TODO: Make sure community labels have consistent mapping across time slices
     def calc_communities_fastgreedy(self):
+        """
+        Use snap's implementation of fastgreedy algorithmn to calculate
+        community labels for each node in every time slice subgraph.
+        """
         communities = -1 * np.ones((len(self.node_to_index), self.num_time_slices), dtype=int)
 
         t = 0
@@ -423,10 +313,6 @@ class Graph():
                 #print communities[i][:3]
 
         self.communities = communities
-
-    def most_central_edge(self, G):
-        centrality = edge_betweenness_centrality(G, weight='weight')
-        return max(centrality, key=centrality.get)
 
     def calculate_graph_modularity(self, graph, communities):
         assert communities is not None

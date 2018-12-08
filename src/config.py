@@ -11,5 +11,3 @@ DATA_PATH = {
     '30days' : '../data/stackoverflow_first_30_days.txt',
     'partial_split' : '../data/partial_split.txt',
 }
-
-
