@@ -261,19 +261,19 @@ class Graph():
         """
         if self.communities is not None:
             print('Communities found, saving...')
-            np.save('../results/%s_communities.npy', self.communities)
+            np.save('../results/%s_communities.npy' % exp_name, self.communities)
             print('Communities saved')
         if self.sanitized_communities is not None:
             print('Sanitized communities found, saving...')
-            np.save('../results/%s_sanizited_communities.npy', self.sanitized_communities)
+            np.save('../results/%s_sanizited_communities.npy' % exp_name, self.sanitized_communities)
             print('Sanitized communities saved')
         if self.modularity is not None:
             print('Modularity found, saving...')
-            np.save('../results/%s_modularity.npy', self.modularity)
+            np.save('../results/%s_modularity.npy' % exp_name, self.modularity)
             print('Modularity saved')
         if self.conductance is not None:
             print('Conductance found, saving...')
-            np.save('../results/%s_conductance.npy', self.conductance)
+            np.save('../results/%s_conductance.npy' % exp_name, self.conductance)
             print('Conductance saved')
 
     def set_time_delta(self, time_delta):
