@@ -21,6 +21,7 @@ class Graph():
     graph = None # snap.TNEANet containing all edges
     sanitized_communities = None # Matrix of shape N * T containing community labels
     communities = None # Numpy matrix of shape N x T containing community labels
+    sanitized_communities = None # Numpy matrix of shape N x T containing community labels
     modularity = None # Numpy array of shape T
     # Numpy matrix of shape C x T (where C is number of communities)
     conductance = None
@@ -255,6 +256,10 @@ class Graph():
             print('Communities found, saving...')
             np.save('../results/%s_communities.npy', self.communities)
             print('Communities saved')
+        if self.sanitized_communities is not None:
+            print('Sanitized communities found, saving...')
+            np.save('../results/%s_sanizited_communities.npy', self.sanitized_communities)
+            print('Sanitized communities saved')
         if self.modularity is not None:
             print('Modularity found, saving...')
             np.save('../results/%s_modularity.npy', self.modularity)
