@@ -261,6 +261,7 @@ class Graph():
         """
         # Initialize communities
         communities = -1 * np.ones((len(self.node_to_index), self.num_time_slices), dtype=int)
+        modularity = np.zeros((self.num_time_slices), dtype=float)
 
         t = 0
         for subgraph, time_slice in self.gen_next_subgraph(weight_fn):
@@ -273,16 +274,17 @@ class Graph():
 
             # Calculate communities
             partitions = leidenalg.find_partition(self.iGraph,leidenalg.ModularityVertexPartition, weights=self.iGraph.es['weight'])
-            modularity = partitions.quality()
+            modularity[t] = partitions.quality()
             for i in xrange(len(self.iGraph.vs)):
                 node_id = self.iGraph.vs[i]['name']
                 communities[self.node_to_index[node_id], t] = partitions.membership[i]
 
             t += 1
-            print('Time slice: %s, Modularity = %f' % (time_slice, modularity))
+            print('Time slice: %s, Modularity = %f' % (time_slice, modularity[t]))
 
         np.save('leiden-assignments.npy', communities)
         self.communities = communities
+        self.modularity = modularity
 
     def calc_communities_fastgreedy(self):
         """
@@ -290,26 +292,28 @@ class Graph():
         community labels for each node in every time slice subgraph.
         """
         communities = -1 * np.ones((len(self.node_to_index), self.num_time_slices), dtype=int)
+        modularity = np.zeros((self.num_time_slices), dtype=float)
 
         t = 0
         for subgraph, time_slice in self.gen_next_subgraph():
             subgraph_clean = snap.ConvertGraph(snap.PUNGraph, subgraph)
             snap.DelSelfEdges(subgraph_clean)
             CmtyV = snap.TCnComV()
-            modularity = snap.CommunityCNM(subgraph_clean, CmtyV)
+            modularity[t] = snap.CommunityCNM(subgraph_clean, CmtyV)
 
             for label, CnCom in enumerate(CmtyV):
                 for node_id in CnCom:
                     communities[self.node_to_index[node_id], t] = label
 
             t += 1
-            print('Time slice: %s, Modularity = %f' % (time_slice, modularity))
+            print('Time slice: %s, Modularity = %f' % (time_slice, modularity[t]))
 
         #for i in xrange(len(communities)):
             #if communities[i, :3] != [-1, -1, -1]:
                 #print communities[i][:3]
 
         self.communities = communities
+        self.modularity = modularity
 
     def calculate_graph_modularity(self, graph, communities):
         assert communities is not None
