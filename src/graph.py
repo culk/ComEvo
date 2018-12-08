@@ -71,6 +71,9 @@ class Graph():
         self.graph = snap.TNEANet.New()
         self.graph.AddIntAttrE('time')
 
+        # Indicator of which community detection algorithm has been applied
+        self.algo_applied = 'None'
+
         with open(path, 'r') as edge_list:
             for line in edge_list:
                 # Parse the line
@@ -134,6 +137,7 @@ class Graph():
             self.calc_communities_fastgreedy()
         else: # etc.
             pass
+        self.algo_applied = method
 
     def get_conductance(self, weight_fn=None):
         """
@@ -448,7 +452,7 @@ class Graph():
         new_igraph.es['weight'] = edge_weights
         return new_igraph
 
-    def writeCommunityToFile(communities, index):
+    def writeCommunityToFile(self, communities, index):
         communityAssignment = {}
         for i, community in enumerate(communities):
             communityAssignment[i] = sorted(community)
@@ -467,14 +471,14 @@ class Graph():
         plt.plot(range(1, len(self.modularity)+1), self.modularity, 'o-')
         plt.xlabel('Cumulative Time Slice #')
         plt.ylabel('Grpah Modularity')
-        plt.title('Temporal Community Evolution - Graph Modularity')
-        plt.savefig('modularity.png')
+        plt.title('Temporal Community Evolution - Graph Modularity (%s)' % self.algo_applied)
+        plt.savefig('modularity_%s.png' % self.algo_applied)
 
     def plot_conductance(self, max_communities):
         for i in xrange(min(max_communities, len(self.conductance))):
             plt.plot(range(1, len(self.conductance[i])+1), self.conductance[i], 'o-', label=str(i))
         plt.xlabel('Cumulative Time Slice #')
         plt.ylabel('Community Conductance')
-        plt.title('Temporal Community Evolution - Conductance')
+        plt.title('Temporal Community Evolution - Conductance (%s)' % self.algo_applied)
         plt.legend()
-        plt.savefig('conductance.png')
+        plt.savefig('conductance_%s.png' % self.algo_applied)
