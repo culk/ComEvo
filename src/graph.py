@@ -523,7 +523,19 @@ class Graph():
                 filename.write(str(key) + ":" + str(communityAssignment[key]) + "\n")
         filename.close()
 
+    def select_best_communities(self, num_best=10):
+        conductance = zip(range(1, len(self.conductance)+1), self.conductance)
+        # Filter out all-zero rows
+        conductance = filter(lambda x: len(np.nonzero(x[1])[0]) > 0, conductance)
+        print conductance
+        # Filter out rows with last timeslice conductance == 0
+        final_nonzero_conductance = filter(lambda x: x[1][-1] > 0, conductance)
+        best_conductance = sorted(final_nonzero_conductance, key=lambda x: x[1][-1], reverse=False)[:num_best]
+        print best_conductance
+        return best_conductance
+
     def plot_modularity(self):
+        plt.figure()
         plt.plot(range(1, len(self.modularity)+1), self.modularity, 'o-')
         plt.xlabel('Cumulative Time Slice #')
         plt.ylabel('Grpah Modularity')
@@ -531,13 +543,22 @@ class Graph():
         plt.savefig('modularity_%s.png' % self.algo_applied)
 
     def plot_conductance(self, y_data=None, max_communities=10):
+        """
+        y_data: list[] of 2-tuples
+            (community_label, np.array(conductance_values_at_timeslices))
+        """
+        plot_colors = [
+            'blue', 'green', 'red', 'cyan', 'magenta',
+            'grey', 'black', 'pink', 'purple', 'orange'
+        ]
         if y_data == None:
-            y_data = self.conductance
+            y_data = zip(range(1, len(self.conductance)+1), self.conductance)
+        plt.figure()
         cond_plot = plt.subplot(111)
         fontP = FontProperties()
         fontP.set_size('small')
-        for i in xrange(len(y_data)):
-            cond_plot.plot(range(1, len(y_data[i])+1), y_data[i], 'o-', label=str(i))
+        for i in xrange(min(max_communities, len(y_data))):
+            cond_plot.plot(range(1, len(y_data[i][1])+1), y_data[i][1], 'o-', label=y_data[i][0], color=plot_colors[i % len(plot_colors)])
         cond_plot.set_xlabel('Cumulative Time Slice #')
         cond_plot.set_ylabel('Community Conductance')
         cond_plot.set_title('Temporal Community Evolution - Conductance (%s)' % self.algo_applied)
