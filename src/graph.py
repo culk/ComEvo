@@ -22,7 +22,6 @@ class Graph():
     graph = None # snap.TNEANet containing all edges
     sanitized_communities = None # Matrix of shape N * T containing community labels
     communities = None # Numpy matrix of shape N x T containing community labels
-    sanitized_communities = None # Numpy matrix of shape N x T containing community labels
     modularity = None # Numpy array of shape T
     # Numpy matrix of shape C x T (where C is number of communities)
     conductance = None
@@ -116,70 +115,63 @@ class Graph():
         """
         assert self.communities is not None
 
-        sanitized_communities = np.zeros_like(self.communities)
-        sanitized_communities.fill(-2)
+        print(self.communities[:8])
+        sanitized = np.zeros_like(self.communities)
+        sanitized.fill(-1)
+        sanitized[:, 0] = self.communities[:, 0]
+        last_label = 0
 
-        num_nodes = np.shape(self.communities)[0]
-        num_timesteps = np.shape(self.communities)[1]
+        for t in xrange(1, self.communities.shape[1]):
+            prev_labels = set(sanitized[:, t-1])
+            prev_labels.discard(-1)
+            # Keep track of largest label assigned so far
+            last_label = max(max(prev_labels), last_label)
 
-        #set the first one as is
+            curr_labels = set(self.communities[:, t])
+            curr_labels.discard(-1)
 
-        global_counter = 0
-
-        sanitized_communities[:, 0] = self.communities[:, 0]
-
-        for timestep in range(0, num_timesteps-1):
-            #go through each community at the current timestep and try to sanitize the next timestep based on the Jaccard Index match
-            current_distinct_communities = np.unique(sanitized_communities[:, timestep])
-            current_distinct_communities = np.delete(current_distinct_communities, np.where(current_distinct_communities == -2))
-            current_distinct_communities = np.delete(current_distinct_communities, np.where(current_distinct_communities == -1))
-
-            next_distinct_communities = np.unique(self.communities[:, timestep+1])
-            next_distinct_communities = np.delete(next_distinct_communities, np.where(next_distinct_communities == -1))
+            # sort curr_labels by community size
+            label_sizes = []
+            for l in curr_labels:
+                size = len(np.squeeze(np.where(self.communities[:, t] == l)))
+                label_sizes.append((size, l))
+            sorted_curr_labels = sorted(label_sizes, key=lambda x: -1 * x[0])
             
-            for i in range(len(current_distinct_communities)):
+            for _, curr_l in sorted_curr_labels:
                 #current timestep, get Jaccard wrt all the other communities
-                nodes_i = np.where(sanitized_communities[:, timestep] == current_distinct_communities[i])[0]
+                curr_l_nodes = np.squeeze(np.where(self.communities[:, t] == curr_l))
 
-                scores = []
-                for j in range(len(next_distinct_communities)):
-                    #get elements belonging to communities j (in next timestep)
-                    nodes_j = np.where(self.communities[:, timestep+1] == next_distinct_communities[j])[0]
+                # Find label from previous time slice with greatest overlap
+                max_score = 0.0
+                new_l = -1
+                for prev_l in prev_labels:
+                    prev_l_nodes = np.squeeze(np.where(sanitized[:, t-1] == prev_l))
 
-                    intersection = np.intersect1d(nodes_i, nodes_j)
-                    union = np.union1d(nodes_i, nodes_j)
-
+                    # Calculate jaccard similarity of these two communities
+                    intersection = np.intersect1d(curr_l_nodes, prev_l_nodes)
+                    union = np.union1d(curr_l_nodes, prev_l_nodes)
                     if len(union) != 0:
                         jaccard = len(intersection) / (1.0 * len(union))
                     else:
                         jaccard = 0.0
+                    if jaccard > max_score:
+                        max_score = jaccard
+                        new_l = prev_l
 
-                    scores.append(jaccard)
+                # If no overlapping community in previous time slice then assign
+                # new labels.
+                if new_l == -1:
+                    last_label += 1
+                    new_l = last_label
 
-                #if the elements in next_distinct_communities reached 0, we are already done
-                if len(next_distinct_communities) != 0:
-                    next_label_i = next_distinct_communities[np.argmax(scores)]
+                # Update curr_l with new_l and remove new_l from prev_labels
+                sanitized[curr_l_nodes, t] = new_l
+                prev_labels.discard(new_l)
 
-                    #assign elements to max jaccard
-                    indices_to_update = np.argwhere(self.communities[:, timestep + 1] == next_label_i)
+        print(sanitized[:8])
+        self.sanitized_communities = sanitized
 
-                    sanitized_communities[np.squeeze(indices_to_update), timestep + 1] = current_distinct_communities[i]
-
-                    #delete the community label to not process any further
-                    next_distinct_communities = np.delete(next_distinct_communities, np.argwhere(next_distinct_communities == next_label_i))
-
-            global_counter = max(i, global_counter + 1)
-
-            #if there are more elements in j, then update them
-            for j in range(len(next_distinct_communities)):
-                indices_to_update = np.argwhere(self.communities[:, timestep + 1] == next_distinct_communities[j])
-                sanitized_communities[np.squeeze(indices_to_update), timestep + 1] = global_counter
-                global_counter += 1
-
-        sanitized_communities[sanitized_communities == -2] = -1
-        self.sanitized_communities = sanitized_communities
-
-        return sanitized_communities
+        return sanitized
 
     def calc_communities(self, method, weight_fn=None, weighted=False):
         """
