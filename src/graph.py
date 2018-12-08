@@ -208,8 +208,8 @@ class Graph():
                 # Calculate the community labels for each node.
                 src_id, dst_id = edge.GetSrcNId(), edge.GetDstNId()
                 weight = subgraph.GetFltAttrDatE(edge, 'weight')
-                src_community = self.communities[self.node_to_index[src_id], i]
-                dst_community = self.communities[self.node_to_index[dst_id], i]
+                src_community = self.communities[self.node_to_index[src_id], t]
+                dst_community = self.communities[self.node_to_index[dst_id], t]
 
                 # All nodes in the current subgraph should have a community.
                 assert src_community != -1 and dst_community != -1
@@ -248,15 +248,15 @@ class Graph():
 
         exp_name should be a unique string used to identify the files saved.
         """
-        if self.communities:
+        if self.communities is not None:
             print('Communities found, saving...')
             np.save('../results/%s_communities.npy', self.communities)
             print('Communities saved')
-        if self.modularity:
+        if self.modularity is not None:
             print('Modularity found, saving...')
             np.save('../results/%s_modularity.npy', self.modularity)
             print('Modularity saved')
-        if self.conductance:
+        if self.conductance is not None:
             print('Conductance found, saving...')
             np.save('../results/%s_conductance.npy', self.conductance)
             print('Conductance saved')
