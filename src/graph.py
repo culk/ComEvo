@@ -541,7 +541,9 @@ class Graph():
         plt.title('Temporal Community Evolution - Graph Modularity (%s)' % self.algo_applied)
         plt.savefig('modularity_%s.png' % self.algo_applied)
 
-    def plot_conductance(self, y_data=self.conductance, max_communities=10):
+    def plot_conductance(self, y_data=None, max_communities=10):
+        if y_data == None:
+            y_data = self.conductance
         cond_plot = plt.subplot(111)
         fontP = FontProperties()
         fontP.set_size('small')
