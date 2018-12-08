@@ -156,14 +156,11 @@ class Graph():
                     next_distinct_communities = np.delete(next_distinct_communities, np.argwhere(next_distinct_communities == next_label_i))
 
             global_counter = max(i, global_counter + 1)
+
             #if there are more elements in j, then update them
             for j in range(len(next_distinct_communities)):
                 indices_to_update = np.argwhere(self.communities[:, timestep + 1] == next_distinct_communities[j])
-                
                 sanitized_communities[np.squeeze(indices_to_update), timestep + 1] = global_counter
-                
-                #for k in range(len(indices_to_update)):
-                #    sanitized_communities[indices_to_update[k][0]][timestep + 1] = i
                 global_counter += 1
 
         sanitized_communities[sanitized_communities == -2] = -1
