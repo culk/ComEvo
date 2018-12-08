@@ -1,3 +1,4 @@
+from collections import Counter
 import csv
 import datetime
 import pdb
@@ -41,22 +42,38 @@ class Graph():
     _cur_time = None
     _cur_index = 0
 
-    def __init__(self, version):
+    def __init__(self, version, degree=0):
         """
         Takes in a string representing which graph version to use and loads
         the entire edge list into a snap.TNEANet.
+
+            version: version of graph edge list to use (see config).
+            degree: remove nodes from edge list with total degree less than this.
         """
         # Select which version of the graph to load
         path = config.DATA_PATH[version]
 
-        # Create a sorted edge list
+        # Create a sorted edge list, removing low degree nodes
         self.edge_list = []
+        degree_counts = Counter()
         with open(path, 'r') as edge_list_file:
             for line in edge_list_file:
                 src, dst, t = (int(i) for i in line.split(' '))
                 # Ignore self edges
                 if src == dst: continue
+                degree_counts[src] += 1
+                degree_counts[dst] += 1
                 self.edge_list.append((src, dst, t))
+        if degree > 0:
+            to_remove = [node_id for node_id, d in degree_counts.iteritems() if d <= degree]
+            new_edge_list = []
+            for edge in self.edge_list:
+                src, dst, _ = edge
+                if src in to_remove or dst in to_remove:
+                    continue
+                else:
+                    new_edge_list.append(edge)
+            self.edge_list = new_edge_list
         self.edge_list = sorted(self.edge_list, key=lambda x: x[2])
 
         # Get start and end time stamps
@@ -92,11 +109,6 @@ class Graph():
         self.node_to_index = dict()
         for i, n in enumerate(self.graph.Nodes()):
             self.node_to_index[n.GetId()] = i
-
-    def preprocess(self):
-        snap.DelDegKNodes(self.graph, 1, 1)
-        snap.DelDegKNodes(self.graph, 2, 2)
-        snap.DelDegKNodes(self.graph, 3, 3)
 
     def sanitize_communities(self):
         """
