@@ -439,6 +439,7 @@ class Graph():
             #if communities[i, :3] != [-1, -1, -1]:
                 #print communities[i][:3]
 
+        np.save('fastgreedy-assignments.npy', communities)
         self.communities = communities
         self.modularity = modularity
 
