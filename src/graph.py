@@ -585,18 +585,49 @@ class Graph():
         plt.savefig('conductance_%s.png' % self.algo_applied)
 
     def select_best_egonet_node(self):
-        pass
-        #return node_id
+        assert self.conductance is not None
+
+        # Find a label for a community with the best final conductance that
+        # existed in the largest number of time slices.
+        timeslice = 0
+        label = -1
+        best_conductance = 1
+        for i in xrange(self.communities.shape[1] - 1):
+            communities = set(self.communities[:, i]) | set(self.communities[:, -1])
+            if len(communities) > 0:
+                timeslice = i
+                break
+        for l in communities:
+            curr_conductance = self.conductance[l, -1]
+            if curr_conductance != 0 and curr_conductance < best_conductance:
+                best_conductance = curr_conductance
+                label = l
+
+        # Count node membership across all communities
+        node_membership_count = Counter()
+        for t in xrange(timeslice, self.communities.shape[1]):
+            for n in np.squeeze(np.where(self.communities[:, t] == label)):
+                for node_id, i in self.node_to_index.iteritems():
+                    if i == n:
+                        node_membership_count[node_id] += 1
+
+        # Return the node with the best membership
+        return node_membership_count.most_common(1)[0][0]
 
     def plot_egonet_community_similarity(self, node_id, distance=2):
+        assert self.communities is not None
+        assert node_id != -1
+
         community_similarity = []
         self.egonets = []
+        self.egonet_edge_lists = []
         self.egonet_node_id = node_id
 
         # Calculate the similarity scores for each subgraph
+        t = 0
         for subgraph, _ in self.gen_next_subgraph():
             # Calculate the egonet set
-            ego_net = set([node_id]) # visited
+            egonet = set([node_id]) # visited
             node = subgraph.GetNI(node_id)
             curr_set = set([node]) # to visit
             for _ in xrange(distance):
@@ -605,31 +636,41 @@ class Graph():
                     # Add all 'in' neighbors to the egonet
                     for i in xrange(n.GetInDeg()):
                         neighbor_id = n.GetInNId(i)
-                        if neighbor_id not in ego_net:
+                        if neighbor_id not in egonet:
                             neighbor = subgraph.GetNI(neighbor_id)
                             next_set.add(neighbor)
-                            ego_net.add(neighbor_id)
+                            egonet.add(neighbor_id)
                     # Add all 'out' neighbors to the egonet
                     for i in xrange(n.GetOutDeg()):
                         neighbor_id = n.GetOutNId(i)
-                        if neighbor_id not in ego_net:
+                        if neighbor_id not in egonet:
                             neighbor = subgraph.GetNI(neighbor_id)
                             next_set.add(neighbor)
-                            ego_net.add(neighbor_id)
+                            egonet.add(neighbor_id)
                 curr_set = next_set
 
             # Append the percent similar for current time slice to scores
             num_similar = 0
-            for n in ego_net:
-                if self.communities[n, t] == self.communities[node_id, t]:
+            for n in egonet:
+                a = self.node_to_index[n]
+                b = self.node_to_index[node_id]
+                if self.communities[a, t] == self.communities[b, t]:
                     num_similar += 1
-            similarity = float(num_similar) / float(len(ego_net))
+            similarity = float(num_similar) / float(len(egonet))
             community_similarity.append(similarity)
+            # TODO: Identify all edges in the egonet and add them to another list
             self.egonets.append(egonet)
+            t += 1
 
         # Plot the values
         plt.figure()
-        plt.plot(range(len(community_similarity)), community_similarity, 'o-')
+        x = range(len(community_similarity))
+        y = community_similarity
+        plt.plot(x, y, 'o-')
+        for t, xy in enumerate(zip(x, y)):
+            l = self.communities[self.node_to_index[node_id], t]
+            # TODO: make this look better
+            plt.annotate(l, xy=xy)
         plt.xlabel('Cumulative Time Slice #')
         plt.ylabel('Same community (%)')
         plt.title("Percent nodes in Node %d's Egonet with Same Community (distance = %d)" % (node_id, distance))
