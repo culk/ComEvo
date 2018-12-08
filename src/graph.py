@@ -179,6 +179,7 @@ class Graph():
 
         sanitized_communities[sanitized_communities == -2] = -1
         self.sanitized_communities = sanitized_communities
+        self.communities = sanitized_communities
 
         return sanitized_communities
 
