@@ -600,13 +600,22 @@ class Graph():
         cond_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
         plt.savefig('conductance_%s.png' % self.algo_applied)
     
-    def plot_egonet(self, nodeList, edgeList, timestep, egoNodeId):
+    def plot_egonets(self, experiment):
+
+        assert self.egonets is not None
+
+        for t in range(len(self.egonets)):
+            self.plot_individual_egonet(self.egonets[t], self.egonet_edge_lists[t], t, self.egonet_node_id, experiment)
+
+        return
+
+    def plot_individual_egonet(self, nodeList, edgeList, timestep, egoNodeId, experiment):
         plt.figure()
 
         communityAssignment = []
 
         for i in range(len(nodeList)):
-            snapNodeId = nodeList[i]
+            snapNodeId = list(nodeList)[i]
 
             nodeIndex = self.node_to_index[snapNodeId] 
 
@@ -637,23 +646,29 @@ class Graph():
             labeldict[srcNodeIndex] = self.communities[srcNodeIndex, timestep]
             labeldict[dstNodeIndex] = self.communities[dstNodeIndex, timestep]
         
-        pos = nx.spring_layout(g)
+        pos = nx.spring_layout(g, k=0.40,iterations=20)
 
         groups = set(nx.get_node_attributes(g,'group').values())
         #mapping = dict(zip(sorted(groups),count()))
         nodes = g.nodes()
         colors = [communityCounts[g.node[n]['group']] for n in nodes]
 
-        #pdb.set_trace()
-        nc = nx.draw_networkx_nodes(g, pos, nodelist=nodes, node_color=colors, cmap=plt.cm.jet)
+        nodeSizes = []
+        for n in nodes:
+            if n == egoNetNodeIndex:
+                nodeSizes.append(900)
+            else:
+                nodeSizes.append(300)
+
+        nc = nx.draw_networkx_nodes(g, pos, node_size=nodeSizes, nodelist=nodes, node_color=colors, cmap=plt.cm.jet)
 
         labels = nx.draw_networkx_labels(g, pos, font_color='w')
 
-        nc = nx.draw_networkx_edges(g, pos, alpha=0.2, arrowstyle='->')
+        nc = nx.draw_networkx_edges(g, pos, alpha=0.5, arrowstyle='->')
 
         plt.axis('off')
 
-        plt.savefig("../results/node_%s_t_%s_egonet.png" % (egoNetNodeIndex, timestep))
+        plt.savefig("../results/%s_node_%s_t_%s_egonet.png" % (experiment, egoNetNodeIndex, timestep))
 
     def select_best_egonet_node(self):
         assert self.conductance is not None
