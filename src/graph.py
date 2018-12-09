@@ -110,8 +110,10 @@ class Graph():
 
         # Calculate self.node_to_index representing the whole self.graph
         self.node_to_index = dict()
+        self.index_to_node = dict()
         for i, n in enumerate(self.graph.Nodes()):
             self.node_to_index[n.GetId()] = i
+            self.index_to_node[i] = n.GetId()
 
     def sanitize_communities(self):
         """
@@ -566,7 +568,6 @@ class Graph():
             comm_numnodes.append([comm_label, comm_label_size])
         return comm_numnodes
 
-
     def plot_modularity(self):
         plt.figure()
         plt.plot(range(len(self.modularity)), self.modularity, 'o-')
@@ -621,9 +622,8 @@ class Graph():
         node_membership_count = Counter()
         for t in xrange(timeslice, self.communities.shape[1]):
             for n in np.squeeze(np.where(self.communities[:, t] == label)):
-                for node_id, i in self.node_to_index.iteritems():
-                    if i == n:
-                        node_membership_count[node_id] += 1
+                node_id = self.index_to_node[n]
+                node_membership_count[node_id] += 1
 
         # Return the node with the best membership
         return node_membership_count.most_common(1)[0][0]
@@ -696,6 +696,59 @@ class Graph():
         plt.ylabel('Same community (%)')
         plt.title("Percent nodes in Node %d's Egonet with Same Community (distance = %d)" % (node_id, distance))
         plt.savefig('community_similarity_node%d_%s.png' % (node_id, self.algo_applied))
+
+    def calc_clustering_coefficients(self):
+        assert self.communities is not None
+
+        # Initialize clustering coefficien values.
+        num_communities = np.max(self.communities) + 1
+        clustering_coefficients = np.zeros((num_communities, self.num_time_slices))
+
+        # Calculate the clustering coefficiens for each time slice.
+        t = 0
+        for subgraph, time_slice in self.gen_next_subgraph():
+            for l in xrange(num_communities):
+                node_ccs = []
+                nodes = np.atleast_1d(np.squeeze(np.where(self.communities[:, t] == l)))
+                for node_index in nodes:
+                    node_id = self.index_to_node[node_index]
+                    node_ccs.append(snap.GetNodeClustCf(subgraph, node_id))
+
+                if len(node_ccs) == 0:
+                    community_cc = 0.0
+                else:
+                    community_cc = sum(node_ccs) / float(len(node_ccs))
+                clustering_coefficients[l, t] = community_cc
+            t += 1
+
+        self.clustering_coefficients = clustering_coefficients
+        return clustering_coefficients
+
+    def plot_community_cc(self, communities=None, max_communities=10):
+        """
+        y_data: list[] of 2-tuples
+            (community_label, np.array(clustering_coefficient_at_timeslices))
+        """
+        plot_colors = [
+            'blue', 'green', 'red', 'cyan', 'magenta',
+            'grey', 'black', 'pink', 'purple', 'orange'
+        ]
+
+        if communities == None:
+            y_data = zip(range(len(self.clustering_coefficients)), self.clustering_coefficients)
+        else:
+            y_data = zip(communities, self.clustering_coefficients[communities])
+        plt.figure()
+        cond_plot = plt.subplot(111)
+        fontP = FontProperties()
+        fontP.set_size('small')
+        for i in xrange(min(max_communities, len(y_data))):
+            cond_plot.plot(range(len(y_data[i][1])), y_data[i][1], 'o-', label=y_data[i][0], color=plot_colors[i % len(plot_colors)])
+        cond_plot.set_xlabel('Cumulative Time Slice #')
+        cond_plot.set_ylabel('Clustering Coefficient')
+        cond_plot.set_title('Temporal Community Evolution - Clustering Coefficient (%s)' % self.algo_applied)
+        cond_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
+        plt.savefig('clustering_coefficient_%s.png' % self.algo_applied)
 
     def plot_numnodes(self, comm_numnodes):
         """
