@@ -16,33 +16,50 @@ from utilities import *
 
 
 def main():
+    # Load edge list and print sumary
+    exp_name = '6months_12_leiden_exp'
+    import_results = True
     graph = Graph('6months', degree=4)
     graph.print_summary()
     graph.set_num_time_slices(12)
-    graph.calc_communities("leiden-algorithm", weight_fn=exp_fn, weighted=True)
 
-    '''
-    load_paths = [
-        '../results/6months_leiden_communities.npy',
-        '../results/6months_leiden_sanizited_communities.npy',
-        '../results/6months_leiden_modularity.npy',
-        '../results/6months_leiden_conductance.npy'
-    ]
-    graph.import_results(*load_paths)
-    '''
+    # Load or calculate communities and conductance
+    if import_results:
+        load_paths = {
+                'communities': '../results/%s_communities.npy' % exp_name,
+                'modularity': '../results/%s_modularity.npy' % exp_name,
+                'sanitized_communities': '../results/%s_sanizited_communities.npy' % exp_name,
+                'conductance': '../results/%s_conductance.npy' % exp_name,
+            }
+        graph.import_results(**load_paths)
+    else:
+        graph.calc_communities("leiden-algorithm", weight_fn=exp_fn, weighted=True)
+        graph.sanitize_communities()
+        graph.get_conductance(weight_fn=exp_fn)
+        graph.export_results(exp_name)
 
-    #graph.calc_communities('fastgreedy', weight_fn=None, weighted=False)
-    graph.export_results('6months_leiden')
-    graph.sanitize_communities()
-    graph.export_results('6months_leiden')
-    graph.get_conductance(weight_fn=exp_fn)
-    graph.export_results('6months_leiden')
-    #graph.plot_modularity()
-    #best_comm_with_conductance = graph.select_best_communities(10)
-    #graph.plot_conductance(best_comm_with_conductance)
-    #best_comm = map(lambda x: x[0], best_comm_with_conductance)
-    #comm_numnodes = graph.get_numnodes_from_comm_labels(best_comm)
-    #graph.plot_numnodes(comm_numnodes)
+    graph.algo_applied = exp_name
+
+    # Plotting
+    print('plotting modularity')
+    graph.plot_modularity()
+    print('getting best communities')
+    best_comm_with_conductance = graph.select_best_communities(10)
+    print('plotting conductance')
+    graph.plot_conductance(best_comm_with_conductance)
+    best_comm = map(lambda x: x[0], best_comm_with_conductance)
+    comm_numnodes = graph.get_numnodes_from_comm_labels(best_comm)
+    print('plotting size')
+    graph.plot_numnodes(comm_numnodes)
+    print('plotting clustering coefficient')
+    graph.calc_clustering_coefficients()
+    graph.plot_community_cc(best_comm)
+    print('plotting egonet similarities')
+    node_id = graph.select_best_egonet_node()
+    graph.plot_egonet_community_similarity(node_id)
+    print('plot egonets')
+    graph.plot_egonet_community_similarity(node_id, distance=1)
+    graph.plot_egonets(graph.algo_applied)
 
 if __name__ == '__main__':
     main()
