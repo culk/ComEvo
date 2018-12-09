@@ -610,16 +610,6 @@ class Graph():
 
         for t in range(len(self.egonets)):
             egonetSet = self.egonets[t]
-            """
-            egonetElements = np.array(list(egonetSet))
-
-            if (len(egonetElements) > elements):
-
-                egonetElements = egonetElements[:elements]
-
-            egonetSet = set(egonetElements.tolist())
-            egonetSet.add(self.egonet_node_id)
-            """
             self.plot_individual_egonet(egonetSet, self.egonet_edge_lists[t], t, self.egonet_node_id, experiment, elements)
 
         return
