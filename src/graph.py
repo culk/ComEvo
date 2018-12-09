@@ -890,10 +890,10 @@ class Graph():
                     nodeid_j = self.index_to_node[idx_j]
                     if (subgraph.IsEdge(nodeid_i, nodeid_j)):
                         edgeI = subgraph.GetEI(nodeid_i, nodeid_j)
-#                         A[i][j] = subgraph.GetFltAttrDatE(edgeI, 'weight')
-                        A[i][j] = 1
-                        A[j][i] = 1
-
+#                         A[i, j] = subgraph.GetFltAttrDatE(edgeI, 'weight')
+                        A[i, j] = 1
+                        A[j, i] = 1
+            plt.figure()
             plt.imshow(A, cmap='binary')
             plt.title("Adjacency Matrix of Top %s Communities\n %s" % (len(boundaries)-1, boundaries))
             plt.savefig('adj_%s_%s.png' % (self.algo_applied, t))
