@@ -136,19 +136,19 @@ class Graph():
             # sort curr_labels by community size
             label_sizes = []
             for l in curr_labels:
-                size = len(np.squeeze(np.where(self.communities[:, t] == l)))
+                size = len(np.atleast_1d(np.squeeze(np.where(self.communities[:, t] == l))))
                 label_sizes.append((size, l))
             sorted_curr_labels = sorted(label_sizes, key=lambda x: -1 * x[0])
             
             for _, curr_l in sorted_curr_labels:
                 #current timestep, get Jaccard wrt all the other communities
-                curr_l_nodes = np.squeeze(np.where(self.communities[:, t] == curr_l))
+                curr_l_nodes = np.atleast_1d(np.squeeze(np.where(self.communities[:, t] == curr_l)))
 
                 # Find label from previous time slice with greatest overlap
                 max_score = 0.0
                 new_l = -1
                 for prev_l in prev_labels:
-                    prev_l_nodes = np.squeeze(np.where(sanitized[:, t-1] == prev_l))
+                    prev_l_nodes = np.atleast_1d(np.squeeze(np.where(sanitized[:, t-1] == prev_l)))
 
                     # Calculate jaccard similarity of these two communities
                     intersection = np.intersect1d(curr_l_nodes, prev_l_nodes)
