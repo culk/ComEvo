@@ -578,7 +578,7 @@ class Graph():
         plt.plot(range(len(self.modularity)), self.modularity, 'o-')
         plt.xlabel('Cumulative Time Slice #')
         plt.ylabel('Graph Modularity')
-        plt.title('Temporal Community Evolution - Graph Modularity (%s)' % self.algo_applied)
+        plt.title('Community Evolution - Graph Modularity (%s)' % self.graph_desc)
         plt.savefig('modularity_%s.png' % self.algo_applied)
 
     def plot_conductance(self, y_data=None, max_communities=10):
@@ -600,7 +600,7 @@ class Graph():
             cond_plot.plot(range(len(y_data[i][1])), y_data[i][1], 'o-', label=y_data[i][0], color=plot_colors[i % len(plot_colors)])
         cond_plot.set_xlabel('Cumulative Time Slice #')
         cond_plot.set_ylabel('Community Conductance')
-        cond_plot.set_title('Temporal Community Evolution - Conductance (%s)' % self.algo_applied)
+        cond_plot.set_title('Community Evolution - Conductance (%s)' % self.graph_desc)
         cond_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
         plt.savefig('conductance_%s.png' % self.algo_applied)
     
@@ -768,8 +768,8 @@ class Graph():
             l = self.communities[self.node_to_index[node_id], t]
             plt.annotate(l, xy=xy)
         plt.xlabel('Cumulative Time Slice #')
-        plt.ylabel('Same community (%)')
-        plt.title("Percent nodes in Node %d's Egonet with Same Community (distance = %d)" % (node_id, distance))
+        plt.ylabel('Percent Nodes with Same Community')
+        plt.title("Node %d's Egonet Community Similarity (distance = %d, %s)" % (node_id, distance, self.graph_desc))
         plt.savefig('community_similarity_node%d_%s.png' % (node_id, self.algo_applied))
 
     def calc_clustering_coefficients(self):
@@ -821,7 +821,7 @@ class Graph():
             cond_plot.plot(range(len(y_data[i][1])), y_data[i][1], 'o-', label=y_data[i][0], color=plot_colors[i % len(plot_colors)])
         cond_plot.set_xlabel('Cumulative Time Slice #')
         cond_plot.set_ylabel('Clustering Coefficient')
-        cond_plot.set_title('Temporal Community Evolution - Clustering Coefficient (%s)' % self.algo_applied)
+        cond_plot.set_title('Community Evolution - Clustering Coefficient (%s)' % self.graph_desc)
         cond_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
         plt.savefig('clustering_coefficient_%s.png' % self.algo_applied)
 
@@ -842,7 +842,7 @@ class Graph():
             numnodes_plot.semilogy(range(len(comm_numnodes[i][1])), comm_numnodes[i][1], 'o-', label=comm_numnodes[i][0], color=plot_colors[i % len(plot_colors)])
         numnodes_plot.set_xlabel('Cumulative Time Slice #')
         numnodes_plot.set_ylabel('Community Size')
-        numnodes_plot.set_title('Temporal Community Evolution - Community Size (%s)' % self.algo_applied)
+        numnodes_plot.set_title('Community Evolution - Community Size (%s)' % self.graph_desc)
         numnodes_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
         plt.savefig('numnodes_%s.png' % self.algo_applied)
 
