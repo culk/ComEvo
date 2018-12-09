@@ -677,7 +677,6 @@ class Graph():
         plt.plot(x, y, 'o-')
         for t, xy in enumerate(zip(x, y)):
             l = self.communities[self.node_to_index[node_id], t]
-            # TODO: make this look better
             plt.annotate(l, xy=xy)
         plt.xlabel('Cumulative Time Slice #')
         plt.ylabel('Same community (%)')
