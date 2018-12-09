@@ -18,7 +18,9 @@ from matplotlib import pyplot as plt
 from matplotlib.font_manager import FontProperties
 
 import config
-
+import networkx as nx
+import pylab as plt
+from collections import Counter
 
 class Graph():
     graph = None # snap.TNEANet containing all edges
@@ -598,6 +600,76 @@ class Graph():
         cond_plot.set_title('Temporal Community Evolution - Conductance (%s)' % self.algo_applied)
         cond_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
         plt.savefig('conductance_%s.png' % self.algo_applied)
+    
+    def plot_egonets(self, experiment):
+
+        assert self.egonets is not None
+
+        for t in range(len(self.egonets)):
+            self.plot_individual_egonet(self.egonets[t], self.egonet_edge_lists[t], t, self.egonet_node_id, experiment)
+
+        return
+
+    def plot_individual_egonet(self, nodeList, edgeList, timestep, egoNodeId, experiment):
+        plt.figure()
+
+        communityAssignment = []
+
+        for i in range(len(nodeList)):
+            snapNodeId = list(nodeList)[i]
+
+            nodeIndex = self.node_to_index[snapNodeId] 
+
+            communityAssignment.append(self.communities[nodeIndex, timestep])
+
+        uniqueCommunities = len(set(communityAssignment))
+
+        communityCounts = Counter(communityAssignment)
+
+        egoNetNodeIndex = self.node_to_index[egoNodeId]
+
+        plt.title('EgoNet of the Node %d at Timestep t = %d' % (egoNetNodeIndex, timestep))
+
+        g = nx.DiGraph()
+        labeldict = {}
+        
+        # Add nodes and edges
+        for edge in edgeList:
+            srcNodeIndex = self.node_to_index[edge[0]]
+
+            dstNodeIndex = self.node_to_index[edge[1]]
+
+            g.add_edge(srcNodeIndex, dstNodeIndex)
+
+            g.node[srcNodeIndex]['group'] = self.communities[srcNodeIndex, timestep]
+            g.node[dstNodeIndex]['group'] = self.communities[dstNodeIndex, timestep]
+
+            labeldict[srcNodeIndex] = self.communities[srcNodeIndex, timestep]
+            labeldict[dstNodeIndex] = self.communities[dstNodeIndex, timestep]
+        
+        pos = nx.spring_layout(g, k=0.40,iterations=20)
+
+        groups = set(nx.get_node_attributes(g,'group').values())
+        #mapping = dict(zip(sorted(groups),count()))
+        nodes = g.nodes()
+        colors = [communityCounts[g.node[n]['group']] for n in nodes]
+
+        nodeSizes = []
+        for n in nodes:
+            if n == egoNetNodeIndex:
+                nodeSizes.append(900)
+            else:
+                nodeSizes.append(300)
+
+        nc = nx.draw_networkx_nodes(g, pos, node_size=nodeSizes, nodelist=nodes, node_color=colors, cmap=plt.cm.jet)
+
+        labels = nx.draw_networkx_labels(g, pos, font_color='w')
+
+        nc = nx.draw_networkx_edges(g, pos, alpha=0.5, arrowstyle='->')
+
+        plt.axis('off')
+
+        plt.savefig("../results/%s_node_%s_t_%s_egonet.png" % (experiment, egoNetNodeIndex, timestep))
 
     def select_best_egonet_node(self):
         assert self.conductance is not None
