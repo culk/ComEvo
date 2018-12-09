@@ -276,6 +276,20 @@ class Graph():
             np.save('../results/%s_conductance.npy' % exp_name, self.conductance)
             print('Conductance saved')
 
+    def import_results(self, communities=None, sanitized_communities=None, modularity=None, conductance=None):
+        if communities != None:
+            self.communities = np.load(communities)
+            print('Communities loaded')
+        if sanitized_communities != None:
+            self.sanitized_communities = np.load(sanitized_communities)
+            print('Sanitized communities loaded')
+        if modularity != None:
+            self.modularity = np.load(modularity)
+            print('Modularity loaded')
+        if conductance != None:
+            self.conductance = np.load(conductance)
+            print('Conductance loaded')
+
     def set_time_delta(self, time_delta):
         """
         Update the time delta and time slices using the given time_delta.
