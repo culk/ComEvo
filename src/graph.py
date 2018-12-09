@@ -2,6 +2,7 @@ from collections import Counter
 import csv
 import datetime
 import pdb
+import random
 import sys
 import time
 
@@ -28,6 +29,8 @@ class Graph():
     modularity = None # Numpy array of shape T
     # Numpy matrix of shape C x T (where C is number of communities)
     conductance = None
+    egonets = None
+    egonet_node_id = None
 
     edge_list = []
 
@@ -260,20 +263,34 @@ class Graph():
         """
         if self.communities is not None:
             print('Communities found, saving...')
-            np.save('../results/%s_communities.npy', self.communities)
+            np.save('../results/%s_communities.npy' % exp_name, self.communities)
             print('Communities saved')
         if self.sanitized_communities is not None:
             print('Sanitized communities found, saving...')
-            np.save('../results/%s_sanizited_communities.npy', self.sanitized_communities)
+            np.save('../results/%s_sanizited_communities.npy' % exp_name, self.sanitized_communities)
             print('Sanitized communities saved')
         if self.modularity is not None:
             print('Modularity found, saving...')
-            np.save('../results/%s_modularity.npy', self.modularity)
+            np.save('../results/%s_modularity.npy' % exp_name, self.modularity)
             print('Modularity saved')
         if self.conductance is not None:
             print('Conductance found, saving...')
-            np.save('../results/%s_conductance.npy', self.conductance)
+            np.save('../results/%s_conductance.npy' % exp_name, self.conductance)
             print('Conductance saved')
+
+    def import_results(self, communities=None, sanitized_communities=None, modularity=None, conductance=None):
+        if communities != None:
+            self.communities = np.load(communities)
+            print('Communities loaded')
+        if sanitized_communities != None:
+            self.sanitized_communities = np.load(sanitized_communities)
+            print('Sanitized communities loaded')
+        if modularity != None:
+            self.modularity = np.load(modularity)
+            print('Modularity loaded')
+        if conductance != None:
+            self.conductance = np.load(conductance)
+            print('Conductance loaded')
 
     def set_time_delta(self, time_delta):
         """
@@ -526,21 +543,37 @@ class Graph():
         filename.close()
 
     def select_best_communities(self, num_best=10):
-        conductance = zip(range(1, len(self.conductance)+1), self.conductance)
+        conductance = zip(range(len(self.conductance)), self.conductance)
         # Filter out all-zero rows
         conductance = filter(lambda x: len(np.nonzero(x[1])[0]) > 0, conductance)
-        print conductance
         # Filter out rows with last timeslice conductance == 0
         final_nonzero_conductance = filter(lambda x: x[1][-1] > 0, conductance)
         best_conductance = sorted(final_nonzero_conductance, key=lambda x: x[1][-1], reverse=False)[:num_best]
-        print best_conductance
+        # Sort best_conductance again based on community label ID
+        best_conductance = sorted(best_conductance, key=lambda x: x[0])
         return best_conductance
+
+    def get_numnodes_from_comm_labels(self, comm_labels):
+        counts_at_time = []
+        for i in xrange(self.num_time_slices):
+            unique, counts = np.unique(self.communities[:, i], return_counts=True)
+            comm_counts = dict(zip(unique, counts))
+            counts_at_time.append(comm_counts)
+        comm_numnodes = []
+        for comm_label in comm_labels:
+            comm_label_size = np.zeros((self.num_time_slices))
+            for i in xrange(self.num_time_slices):
+                if comm_label in counts_at_time[i]:
+                    comm_label_size[i] = counts_at_time[i][comm_label]
+            comm_numnodes.append([comm_label, comm_label_size])
+        return comm_numnodes
+
 
     def plot_modularity(self):
         plt.figure()
-        plt.plot(range(1, len(self.modularity)+1), self.modularity, 'o-')
+        plt.plot(range(len(self.modularity)), self.modularity, 'o-')
         plt.xlabel('Cumulative Time Slice #')
-        plt.ylabel('Grpah Modularity')
+        plt.ylabel('Graph Modularity')
         plt.title('Temporal Community Evolution - Graph Modularity (%s)' % self.algo_applied)
         plt.savefig('modularity_%s.png' % self.algo_applied)
 
@@ -554,19 +587,18 @@ class Graph():
             'grey', 'black', 'pink', 'purple', 'orange'
         ]
         if y_data == None:
-            y_data = zip(range(1, len(self.conductance)+1), self.conductance)
+            y_data = zip(range(len(self.conductance)), self.conductance)
         plt.figure()
         cond_plot = plt.subplot(111)
         fontP = FontProperties()
         fontP.set_size('small')
         for i in xrange(min(max_communities, len(y_data))):
-            cond_plot.plot(range(1, len(y_data[i][1])+1), y_data[i][1], 'o-', label=y_data[i][0], color=plot_colors[i % len(plot_colors)])
+            cond_plot.plot(range(len(y_data[i][1])), y_data[i][1], 'o-', label=y_data[i][0], color=plot_colors[i % len(plot_colors)])
         cond_plot.set_xlabel('Cumulative Time Slice #')
         cond_plot.set_ylabel('Community Conductance')
         cond_plot.set_title('Temporal Community Evolution - Conductance (%s)' % self.algo_applied)
         cond_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
         plt.savefig('conductance_%s.png' % self.algo_applied)
-
     
     def plot_egonet(self, nodeList, edgeList, timestep, egoNodeId):
         plt.figure()
@@ -622,3 +654,123 @@ class Graph():
         plt.axis('off')
 
         plt.savefig("../results/node_%s_t_%s_egonet.png" % (egoNetNodeIndex, timestep))
+
+    def select_best_egonet_node(self):
+        assert self.conductance is not None
+
+        # Find a label for a community with the best final conductance that
+        # existed in the largest number of time slices.
+        timeslice = 0
+        label = -1
+        best_conductance = 1
+        for i in xrange(self.communities.shape[1] - 1):
+            communities = set(self.communities[:, i]) | set(self.communities[:, -1])
+            if len(communities) > 0:
+                timeslice = i
+                break
+        for l in communities:
+            curr_conductance = self.conductance[l, -1]
+            if curr_conductance != 0 and curr_conductance < best_conductance:
+                best_conductance = curr_conductance
+                label = l
+
+        # Count node membership across all communities
+        node_membership_count = Counter()
+        for t in xrange(timeslice, self.communities.shape[1]):
+            for n in np.squeeze(np.where(self.communities[:, t] == label)):
+                for node_id, i in self.node_to_index.iteritems():
+                    if i == n:
+                        node_membership_count[node_id] += 1
+
+        # Return the node with the best membership
+        return node_membership_count.most_common(1)[0][0]
+
+    def plot_egonet_community_similarity(self, node_id, distance=2):
+        assert self.communities is not None
+        assert node_id != -1
+
+        community_similarity = []
+        self.egonets = []
+        self.egonet_edge_lists = []
+        self.egonet_node_id = node_id
+
+        # Calculate the similarity scores for each subgraph
+        t = 0
+        for subgraph, _ in self.gen_next_subgraph():
+            # Calculate the egonet set
+            egonet = set([node_id]) # visited
+            node = subgraph.GetNI(node_id)
+            curr_set = set([node]) # to visit
+            for _ in xrange(distance):
+                next_set = set()
+                for n in curr_set:
+                    # Add all 'in' neighbors to the egonet
+                    for i in xrange(n.GetInDeg()):
+                        neighbor_id = n.GetInNId(i)
+                        if neighbor_id not in egonet:
+                            neighbor = subgraph.GetNI(neighbor_id)
+                            next_set.add(neighbor)
+                            egonet.add(neighbor_id)
+                    # Add all 'out' neighbors to the egonet
+                    for i in xrange(n.GetOutDeg()):
+                        neighbor_id = n.GetOutNId(i)
+                        if neighbor_id not in egonet:
+                            neighbor = subgraph.GetNI(neighbor_id)
+                            next_set.add(neighbor)
+                            egonet.add(neighbor_id)
+                curr_set = next_set
+
+            # Append the percent similar for current time slice to scores
+            num_similar = 0
+            for n in egonet:
+                a = self.node_to_index[n]
+                b = self.node_to_index[node_id]
+                if self.communities[a, t] == self.communities[b, t]:
+                    num_similar += 1
+            similarity = float(num_similar) / float(len(egonet))
+            community_similarity.append(similarity)
+
+            # Calculate the list of egonet edges
+            egonet_edge_list = []
+            for src in egonet:
+                for dst in egonet:
+                    if subgraph.IsEdge(src, dst):
+                        egonet_edge_list.append((src, dst))
+
+            self.egonets.append(egonet)
+            self.egonet_edge_lists.append(egonet_edge_list)
+            t += 1
+
+        # Plot the values
+        plt.figure()
+        x = range(len(community_similarity))
+        y = community_similarity
+        plt.plot(x, y, 'o-')
+        for t, xy in enumerate(zip(x, y)):
+            l = self.communities[self.node_to_index[node_id], t]
+            plt.annotate(l, xy=xy)
+        plt.xlabel('Cumulative Time Slice #')
+        plt.ylabel('Same community (%)')
+        plt.title("Percent nodes in Node %d's Egonet with Same Community (distance = %d)" % (node_id, distance))
+        plt.savefig('community_similarity_node%d_%s.png' % (node_id, self.algo_applied))
+
+    def plot_numnodes(self, comm_numnodes):
+        """
+        y_data: list[] of 2-tuples
+            (community_label, np.array(conductance_values_at_timeslices))
+        """
+        plot_colors = [
+            'blue', 'green', 'red', 'cyan', 'magenta',
+            'grey', 'black', 'pink', 'purple', 'orange'
+        ]
+        plt.figure()
+        numnodes_plot = plt.subplot(111)
+        fontP = FontProperties()
+        fontP.set_size('small')
+        for i in xrange(len(comm_numnodes)):
+            numnodes_plot.semilogy(range(len(comm_numnodes[i][1])), comm_numnodes[i][1], 'o-', label=comm_numnodes[i][0], color=plot_colors[i % len(plot_colors)])
+        numnodes_plot.set_xlabel('Cumulative Time Slice #')
+        numnodes_plot.set_ylabel('Community Size')
+        numnodes_plot.set_title('Temporal Community Evolution - Community Size (%s)' % self.algo_applied)
+        numnodes_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
+        plt.savefig('numnodes_%s.png' % self.algo_applied)
