@@ -601,16 +601,27 @@ class Graph():
         cond_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
         plt.savefig('conductance_%s.png' % self.algo_applied)
     
-    def plot_egonets(self, experiment):
+    def plot_egonets(self, experiment, elements=15):
 
         assert self.egonets is not None
 
         for t in range(len(self.egonets)):
-            self.plot_individual_egonet(self.egonets[t], self.egonet_edge_lists[t], t, self.egonet_node_id, experiment)
+            egonetSet = self.egonets[t]
+            """
+            egonetElements = np.array(list(egonetSet))
+
+            if (len(egonetElements) > elements):
+
+                egonetElements = egonetElements[:elements]
+
+            egonetSet = set(egonetElements.tolist())
+            egonetSet.add(self.egonet_node_id)
+            """
+            self.plot_individual_egonet(egonetSet, self.egonet_edge_lists[t], t, self.egonet_node_id, experiment, elements)
 
         return
 
-    def plot_individual_egonet(self, nodeList, edgeList, timestep, egoNodeId, experiment):
+    def plot_individual_egonet(self, nodeList, edgeList, timestep, egoNodeId, experiment, elements):
         plt.figure()
 
         communityAssignment = []
@@ -626,6 +637,18 @@ class Graph():
 
         communityCounts = Counter(communityAssignment)
 
+        probabilities = [communityCounts[communityAssignment[i]] for i, n in enumerate(nodeList)]
+
+        nodesArray = np.array(list(nodeList))
+        probabilityArray = np.array(probabilities)
+        probabilityArray = probabilityArray / float(np.sum(probabilities))
+
+        nodesArray = np.random.choice(nodesArray, min(elements, len(nodesArray)), replace=False, p=probabilityArray)
+
+        nodeList = set(list(nodesArray))
+        nodeList.add(egoNodeId)
+        nodeList = list(nodeList)
+
         egoNetNodeIndex = self.node_to_index[egoNodeId]
 
         plt.title('EgoNet of the Node %d at Timestep t = %d' % (egoNetNodeIndex, timestep))
@@ -635,17 +658,18 @@ class Graph():
         
         # Add nodes and edges
         for edge in edgeList:
-            srcNodeIndex = self.node_to_index[edge[0]]
+            if edge[0] in nodeList and edge[1] in nodeList:
+                srcNodeIndex = self.node_to_index[edge[0]]
 
-            dstNodeIndex = self.node_to_index[edge[1]]
+                dstNodeIndex = self.node_to_index[edge[1]]
+                
+                g.add_edge(srcNodeIndex, dstNodeIndex)
 
-            g.add_edge(srcNodeIndex, dstNodeIndex)
+                g.node[srcNodeIndex]['group'] = self.communities[srcNodeIndex, timestep]
+                g.node[dstNodeIndex]['group'] = self.communities[dstNodeIndex, timestep]
 
-            g.node[srcNodeIndex]['group'] = self.communities[srcNodeIndex, timestep]
-            g.node[dstNodeIndex]['group'] = self.communities[dstNodeIndex, timestep]
-
-            labeldict[srcNodeIndex] = self.communities[srcNodeIndex, timestep]
-            labeldict[dstNodeIndex] = self.communities[dstNodeIndex, timestep]
+                labeldict[srcNodeIndex] = self.communities[srcNodeIndex, timestep]
+                labeldict[dstNodeIndex] = self.communities[dstNodeIndex, timestep]
         
         pos = nx.spring_layout(g, k=0.40,iterations=20)
 
@@ -684,6 +708,7 @@ class Graph():
             if len(communities) > 0:
                 timeslice = i
                 break
+        print ("Timeslice = " + str(timeslice))
         for l in communities:
             curr_conductance = self.conductance[l, -1]
             if curr_conductance != 0 and curr_conductance < best_conductance:
@@ -693,7 +718,7 @@ class Graph():
         # Count node membership across all communities
         node_membership_count = Counter()
         for t in xrange(timeslice, self.communities.shape[1]):
-            for n in np.squeeze(np.where(self.communities[:, t] == label)):
+            for n in np.squeeze(np.argwhere(self.communities[:, t] == label)):
                 node_id = self.index_to_node[n]
                 node_membership_count[node_id] += 1
 
@@ -714,6 +739,7 @@ class Graph():
         for subgraph, _ in self.gen_next_subgraph():
             # Calculate the egonet set
             egonet = set([node_id]) # visited
+
             node = subgraph.GetNI(node_id)
             curr_set = set([node]) # to visit
             for _ in xrange(distance):
