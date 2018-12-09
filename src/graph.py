@@ -369,8 +369,9 @@ class Graph():
                 'start_time',
                 'end_time',
                 'num_nodes',
-                'num_temporal_edges',
-                'num_static_edges',
+                'num_edges',
+                'clustering_coefficient',
+                'estimated_diameter',
                 ]
 
         # Open a csvfile and create a csv writer
@@ -388,7 +389,9 @@ class Graph():
                         end_time,
                         subgraph.GetNodes(),
                         subgraph.GetEdges(),
-                        ]
+                        snap.GetClustCf(subgraph),
+                        snap.GetAnfEffDiam(subgraph),
+                    ]
                 writer.writerow(field_values)
                 i += 1
 
@@ -680,7 +683,7 @@ class Graph():
         label = -1
         best_conductance = 1
         for i in xrange(self.communities.shape[1] - 1):
-            communities = set(self.communities[:, i]) | set(self.communities[:, -1])
+            communities = set(self.communities[:, i]) & set(self.communities[:, -1])
             if len(communities) > 0:
                 timeslice = i
                 break
@@ -693,7 +696,7 @@ class Graph():
         # Count node membership across all communities
         node_membership_count = Counter()
         for t in xrange(timeslice, self.communities.shape[1]):
-            for n in np.squeeze(np.where(self.communities[:, t] == label)):
+            for n in np.squeeze(np.argwhere(self.communities[:, t] == label)):
                 node_id = self.index_to_node[n]
                 node_membership_count[node_id] += 1
 
