@@ -369,8 +369,9 @@ class Graph():
                 'start_time',
                 'end_time',
                 'num_nodes',
-                'num_temporal_edges',
-                'num_static_edges',
+                'num_edges',
+                'clustering_coefficient',
+                'estimated_diameter',
                 ]
 
         # Open a csvfile and create a csv writer
@@ -388,7 +389,9 @@ class Graph():
                         end_time,
                         subgraph.GetNodes(),
                         subgraph.GetEdges(),
-                        ]
+                        snap.GetClustCf(subgraph),
+                        snap.GetAnfEffDiam(subgraph),
+                    ]
                 writer.writerow(field_values)
                 i += 1
 
@@ -704,7 +707,7 @@ class Graph():
         label = -1
         best_conductance = 1
         for i in xrange(self.communities.shape[1] - 1):
-            communities = set(self.communities[:, i]) | set(self.communities[:, -1])
+            communities = set(self.communities[:, i]) & set(self.communities[:, -1])
             if len(communities) > 0:
                 timeslice = i
                 break
@@ -868,3 +871,31 @@ class Graph():
         numnodes_plot.set_title('Temporal Community Evolution - Community Size (%s)' % self.algo_applied)
         numnodes_plot.legend(loc="upper left", bbox_to_anchor=(1,1), prop=fontP)
         plt.savefig('numnodes_%s.png' % self.algo_applied)
+
+    def plot_adj(self, comm_labels):
+        t = 0
+        for subgraph, time_slice in self.gen_next_subgraph():
+            assignment_at_time = self.communities[:, t]
+            all_nodes = []
+            boundaries = [0]
+            for comm_label in comm_labels:
+                indices = np.atleast_1d(np.squeeze(np.argwhere(assignment_at_time == comm_label)))
+                all_nodes += list(indices)
+                if len(indices) > 0:
+                    boundaries.append(boundaries[-1] + len(indices))
+            A = np.zeros((len(all_nodes), len(all_nodes)))
+            for i, idx_i in enumerate(all_nodes):
+                for j, idx_j in enumerate(all_nodes):
+                    nodeid_i = self.index_to_node[idx_i]
+                    nodeid_j = self.index_to_node[idx_j]
+                    if (subgraph.IsEdge(nodeid_i, nodeid_j)):
+                        edgeI = subgraph.GetEI(nodeid_i, nodeid_j)
+#                         A[i][j] = subgraph.GetFltAttrDatE(edgeI, 'weight')
+                        A[i][j] = 1
+                        A[j][i] = 1
+
+            plt.imshow(A, cmap='binary')
+            plt.title("Adjacency Matrix of Top %s Communities\n %s" % (len(boundaries)-1, boundaries))
+            plt.savefig('adj_%s_%s.png' % (self.algo_applied, t))
+
+            t += 1
