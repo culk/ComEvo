@@ -605,14 +605,11 @@ class Graph():
         plt.savefig('conductance_%s.png' % self.algo_applied)
     
     def plot_egonets(self, experiment, elements=15):
-
         assert self.egonets is not None
 
         for t in range(len(self.egonets)):
             egonetSet = self.egonets[t]
             self.plot_individual_egonet(egonetSet, self.egonet_edge_lists[t], t, self.egonet_node_id, experiment, elements)
-
-        return
 
     def plot_individual_egonet(self, nodeList, edgeList, timestep, egoNodeId, experiment, elements):
         plt.figure()
@@ -644,7 +641,7 @@ class Graph():
 
         egoNetNodeIndex = self.node_to_index[egoNodeId]
 
-        plt.title('EgoNet of the Node %d at Timestep t = %d' % (egoNetNodeIndex, timestep))
+        plt.title('EgoNet of Node %d at Timeslice t = %d (%s)' % (egoNetNodeIndex, timestep, self.graph_desc))
 
         g = nx.DiGraph()
         labeldict = {}
@@ -686,7 +683,7 @@ class Graph():
 
         plt.axis('off')
 
-        plt.savefig("../results/%s_node_%s_t_%s_egonet.png" % (experiment, egoNetNodeIndex, timestep))
+        plt.savefig("../results/%s_node_%s_t_%s_egonet.png" % (self.algo_applied, egoNetNodeIndex, timestep))
 
     def select_best_egonet_node(self):
         assert self.conductance is not None
