@@ -882,6 +882,9 @@ class Graph():
                         A[j, i] = 1
             plt.figure()
             plt.imshow(A, cmap='binary')
+            for (i, boundary) in enumerate(boundaries[1:-1]):
+                plt.axhline(y=boundary)
+                plt.axvline(x=boundary)
             plt.title("Adjacency Matrix of Top %s Communities\n %s" % (len(boundaries)-1, boundaries))
             plt.savefig('adj_%s_%s.png' % (self.algo_applied, t))
 
